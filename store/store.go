@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ type Store struct {
 	db       *sql.DB
 	dbPath   string
 	mu       sync.RWMutex
+	hasFTS5  bool
 }
 
 // NewStore creates a new store with a temporary database file
@@ -41,8 +43,9 @@ func NewStore() (*Store, error) {
 	}
 
 	store := &Store{
-		db:     db,
-		dbPath: dbPath,
+		db:      db,
+		dbPath:  dbPath,
+		hasFTS5: false,
 	}
 
 	if err := store.initSchema(); err != nil {
@@ -74,7 +77,7 @@ func (s *Store) initSchema() error {
 		return fmt.Errorf("create log_entries: %w", err)
 	}
 
-	// FTS5 virtual table for full-text search
+	// Try to create FTS5 virtual table - if it fails, we'll use LIKE queries
 	_, err = s.db.Exec(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS logs_fts USING fts5(
 			level, source, class, message,
@@ -83,20 +86,20 @@ func (s *Store) initSchema() error {
 			tokenize='unicode61'
 		);
 	`)
-	if err != nil {
-		return fmt.Errorf("create logs_fts: %w", err)
+	if err == nil {
+		s.hasFTS5 = true
+		// Trigger to sync FTS with main table
+		_, err = s.db.Exec(`
+			CREATE TRIGGER IF NOT EXISTS log_entries_ai AFTER INSERT ON log_entries BEGIN
+				INSERT INTO logs_fts(rowid, level, source, class, message)
+				VALUES (new.id, new.level, new.source, new.class, new.message);
+			END;
+		`)
+		if err != nil {
+			return fmt.Errorf("create trigger: %w", err)
+		}
 	}
-
-	// Trigger to sync FTS with main table
-	_, err = s.db.Exec(`
-		CREATE TRIGGER IF NOT EXISTS log_entries_ai AFTER INSERT ON log_entries BEGIN
-			INSERT INTO logs_fts(rowid, level, source, class, message)
-			VALUES (new.id, new.level, new.source, new.class, new.message);
-		END;
-	`)
-	if err != nil {
-		return fmt.Errorf("create trigger: %w", err)
-	}
+	// If FTS5 fails, we'll use LIKE queries (hasFTS5 remains false)
 
 	return nil
 }
@@ -181,7 +184,7 @@ func (s *Store) Search(q SearchQuery) (*SearchResult, error) {
 	var countQuery string
 	var countArgs []interface{}
 
-	if q.Keyword != "" {
+	if q.Keyword != "" && s.hasFTS5 {
 		// Use FTS5 for keyword search
 		query = `
 			SELECT e.id, e.timestamp, e.level, e.source, e.class, e.message
@@ -198,6 +201,7 @@ func (s *Store) Search(q SearchQuery) (*SearchResult, error) {
 		args = append(args, q.Keyword)
 		countArgs = append(countArgs, q.Keyword)
 	} else {
+		// Use LIKE queries (fallback)
 		query = `
 			SELECT id, timestamp, level, source, class, message
 			FROM log_entries
@@ -208,14 +212,41 @@ func (s *Store) Search(q SearchQuery) (*SearchResult, error) {
 			FROM log_entries
 			WHERE 1=1
 		`
+
+		if q.Keyword != "" {
+			// Split keyword by spaces and search for each part
+			keywords := strings.Fields(q.Keyword)
+			for _, kw := range keywords {
+				query += " AND (message LIKE ? OR class LIKE ? OR source LIKE ?)"
+				countQuery += " AND (message LIKE ? OR class LIKE ? OR source LIKE ?)"
+				likePattern := "%" + kw + "%"
+				args = append(args, likePattern, likePattern, likePattern)
+				countArgs = append(countArgs, likePattern, likePattern, likePattern)
+			}
+		}
 	}
 
 	// Add filters
 	if q.Level != "" {
-		query += " AND level = ?"
-		countQuery += " AND level = ?"
-		args = append(args, q.Level)
-		countArgs = append(countArgs, q.Level)
+		// Handle comma-separated levels
+		levels := strings.Split(q.Level, ",")
+		if len(levels) == 1 {
+			query += " AND level = ?"
+			countQuery += " AND level = ?"
+			args = append(args, q.Level)
+			countArgs = append(countArgs, q.Level)
+		} else {
+			placeholders := make([]string, len(levels))
+			levelArgs := make([]interface{}, len(levels))
+			for i, lvl := range levels {
+				placeholders[i] = "?"
+				levelArgs[i] = strings.TrimSpace(lvl)
+			}
+			query += " AND level IN (" + strings.Join(placeholders, ",") + ")"
+			countQuery += " AND level IN (" + strings.Join(placeholders, ",") + ")"
+			args = append(args, levelArgs...)
+			countArgs = append(countArgs, levelArgs...)
+		}
 	}
 
 	if q.Class != "" {

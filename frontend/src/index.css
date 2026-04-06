@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-main: #1a1a2e;
+  --color-bg-header: #16213e;
+  --color-border: #0f3460;
+  --color-primary: #e94560;
+  --color-primary-hover: #ff6b6b;
+  --color-level-trace: #7f8c8d;
+  --color-level-debug: #95a5a6;
+  --color-level-info: #3498db;
+  --color-level-warn: #f39c12;
+  --color-level-error: #e94560;
+
+  --font-sans: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --font-mono: "Consolas", "Monaco", monospace;
+}
+
+/* Custom color utilities */
+.bg-bg-main { background-color: var(--color-bg-main); }
+.bg-bg-header { background-color: var(--color-bg-header); }
+.bg-border { background-color: var(--color-border); }
+.bg-primary { background-color: var(--color-primary); }
+.bg-primary-hover { background-color: var(--color-primary-hover); }
+.bg-level-trace { background-color: var(--color-level-trace); }
+.bg-level-debug { background-color: var(--color-level-debug); }
+.bg-level-info { background-color: var(--color-level-info); }
+.bg-level-warn { background-color: var(--color-level-warn); }
+.bg-level-error { background-color: var(--color-level-error); }
+
+.text-level-trace { color: var(--color-level-trace); }
+.text-level-debug { color: var(--color-level-debug); }
+.text-level-info { color: var(--color-level-info); }
+.text-level-warn { color: var(--color-level-warn); }
+.text-level-error { color: var(--color-level-error); }
+.text-primary { color: var(--color-primary); }
+
+.border-border { border-color: var(--color-border); }
+.border-level-trace { border-color: var(--color-level-trace); }
+.border-level-debug { border-color: var(--color-level-debug); }
+.border-level-info { border-color: var(--color-level-info); }
+.border-level-warn { border-color: var(--color-level-warn); }
+.border-level-error { border-color: var(--color-level-error); }
+
+.bg-primary\/5 { background-color: color-mix(in srgb, var(--color-primary) 5%, transparent); }
+.bg-level-trace\/20 { background-color: color-mix(in srgb, var(--color-level-trace) 20%, transparent); }
+.bg-level-debug\/20 { background-color: color-mix(in srgb, var(--color-level-debug) 20%, transparent); }
+.bg-level-info\/20 { background-color: color-mix(in srgb, var(--color-level-info) 20%, transparent); }
+.bg-level-warn\/20 { background-color: color-mix(in srgb, var(--color-level-warn) 20%, transparent); }
+.bg-level-error\/20 { background-color: color-mix(in srgb, var(--color-level-error) 20%, transparent); }
+
+.hover\:bg-primary:hover { background-color: var(--color-primary); }
+.hover\:bg-primary-hover:hover { background-color: var(--color-primary-hover); }
+
+.focus\:border-primary:focus { border-color: var(--color-primary); }
+
+/* Custom spacing utilities */
+.min-w-45 { min-width: 11.25rem; }
+.min-w-15 { min-width: 3.75rem; }
+.w-45 { width: 11.25rem; }
+.w-15 { width: 3.75rem; }
+
+/* Custom border */
+.border-l-3 { border-left-width: 3px; }
+.border-3 { border-width: 3px; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0f3460;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e94560;
+}
+
+/* Number input spinner hide */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}

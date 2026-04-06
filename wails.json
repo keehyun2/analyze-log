@@ -6,8 +6,13 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "frontendDevTimeout": 120,
   "author": {
     "name": "Keehyun Park",
     "email": "keehyun2@gmail.com"
+  },
+  "windows": {
+    "resizable": true,
+    "alwaysOnTop": false
   }
 }

@@ -20,8 +20,9 @@ type LogEntry struct {
 }
 
 // logEntryRegex matches the start of a log entry
-// Example: 2026-04-06 10:30:45.123 INFO  LogAspect.logging:39 - Log message
-var logEntryRegex = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+([^\s]+:\d+)\s+-\s+(.*)$`)
+// Example: 2026-04-06 10:30:45.123 INFO [LogAspect.logging:39] - Log message
+//         2026-01-01 11:34:22.814 DEBUG [JwtFilter.doFilterInternal:40] - message
+var logEntryRegex = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+\[([^\]]+:\d+)\]\s*-\s*(.*)$`)
 
 // ParseFile parses a log file and returns log entries
 func ParseFile(filePath string) ([]LogEntry, error) {

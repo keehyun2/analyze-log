@@ -6,6 +6,8 @@ import (
 
 	"analyze-log/parser"
 	"analyze-log/store"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
@@ -22,6 +24,7 @@ func NewApp() *App {
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	fmt.Println("[App] Startup completed")
 }
 
 // shutdown is called when the app exits
@@ -173,4 +176,26 @@ func (a *App) GetStats() (Stats, error) {
 //wails:export
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+// OpenFileDialog opens a file dialog and returns the selected path
+//wails:export
+func (a *App) OpenFileDialog() (string, error) {
+	selection, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Log File",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Log Files",
+				Pattern:     "*.log;*.txt",
+			},
+			{
+				DisplayName: "All Files",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	return selection, nil
 }
