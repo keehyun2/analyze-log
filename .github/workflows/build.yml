@@ -1,0 +1,100 @@
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            os: windows-latest
+            output: analyze-log.exe
+          - goos: darwin
+            goarch: amd64
+            os: macos-latest
+            output: analyze-log
+          - goos: darwin
+            goarch: arm64
+            os: macos-latest
+            output: analyze-log-arm
+          - goos: linux
+            goarch: amd64
+            os: ubuntu-latest
+            output: analyze-log
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: wails build -clean -platform ${{ matrix.goos }}/${{ matrix.goarch }}
+
+      - name: Set output filename
+        shell: bash
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            echo "OUTPUT=analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}.exe" >> $GITHUB_ENV
+          else
+            echo "OUTPUT=analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}" >> $GITHUB_ENV
+          fi
+
+      - name: Rename output
+        shell: bash
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            mv build/bin/analyze-log.exe ${{ env.OUTPUT }}
+          elif [ "${{ matrix.goos }}" = "darwin" ] && [ "${{ matrix.goarch }}" = "arm64" ]; then
+            mv build/bin/analyze-log-arm ${{ env.OUTPUT }}
+          else
+            mv build/bin/analyze-log ${{ env.OUTPUT }}
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.OUTPUT }}
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.OUTPUT }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
