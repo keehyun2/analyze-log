@@ -13,6 +13,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Slack - Build Started
+        shell: bash
+        run: |
+          curl -s -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            -d "{\"text\":\":construction: *Build Started*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}\"}"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -35,12 +42,6 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-
-      - name: Slack - Build Started
-        run: |
-          curl -s -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-            -H 'Content-type: application/json' \
-            -d "{\"text\":\":construction: *Build Started*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}\"}"
 
       - name: Build
         id: build
@@ -70,6 +71,7 @@ jobs:
 
       - name: Slack - Build Success
         if: success()
+        shell: bash
         run: |
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Output:* ${{ env.OUTPUT }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions 보기>\"}" \
@@ -77,6 +79,7 @@ jobs:
 
       - name: Slack - Build Failed
         if: failure()
+        shell: bash
         run: |
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\":x: *Build Failed*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n로그: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
