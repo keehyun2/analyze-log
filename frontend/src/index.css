@@ -4,6 +4,8 @@
   --color-bg-main: #1a1a2e;
   --color-bg-header: #16213e;
   --color-border: #0f3460;
+  --color-text-main: #e5e7eb;
+  --color-text-muted: #9ca3af;
   --color-primary: #e94560;
   --color-primary-hover: #ff6b6b;
   --color-level-trace: #7f8c8d;
@@ -64,35 +66,6 @@
 .border-l-3 { border-left-width: 3px; }
 .border-3 { border-width: 3px; }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1a1a2e;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #0f3460;
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #e94560;
-}
-
-/* Number input spinner hide */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
 /* Toast animation */
 @keyframes slide-in {
   from {
@@ -139,4 +112,22 @@ input[type=number] {
 
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
+}
+
+/* Light theme adjustments */
+[data-theme="light"] {
+  color: var(--color-text-main);
+}
+
+/* Text color utilities */
+.text-text-main { color: var(--color-text-main); }
+.text-text-muted { color: var(--color-text-muted); }
+
+/* Datetime input color scheme */
+.datetime-input {
+  color-scheme: dark;
+}
+
+[data-theme="light"] .datetime-input {
+  color-scheme: light;
 }

@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	stdruntime "runtime"
 
 	"analyze-log/parser"
 	"analyze-log/store"
 
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -26,6 +30,14 @@ type AppSettings struct {
 	Theme            string `json:"theme"`
 	FontSize         int    `json:"fontSize"`
 	DisplayMode      string `json:"displayMode"`
+	ShowResourceUsage bool  `json:"showResourceUsage"`
+}
+
+// SystemResource holds system resource usage information
+type SystemResource struct {
+	CPUUsage    float64 `json:"cpuUsage"`    // Percentage
+	MemoryUsage float64 `json:"memoryUsage"` // Percentage in MB
+	MemoryMB    float64 `json:"memoryMB"`    // Actual usage in MB
 }
 
 // NewApp creates a new App application struct
@@ -189,6 +201,30 @@ func (a *App) GetStats() (Stats, error) {
 	}, nil
 }
 
+// DateRange holds the min and max timestamps from the loaded logs
+type DateRange struct {
+	Min string `json:"min"`
+	Max string `json:"max"`
+}
+
+// GetDateRange returns the minimum and maximum timestamps from the loaded logs
+//wails:export
+func (a *App) GetDateRange() (DateRange, error) {
+	if a.store == nil {
+		return DateRange{}, nil
+	}
+
+	dr, err := a.store.GetDateRange()
+	if err != nil {
+		return DateRange{}, err
+	}
+
+	return DateRange{
+		Min: dr.Min,
+		Max: dr.Max,
+	}, nil
+}
+
 // Greet returns a greeting (kept for testing)
 //wails:export
 func (a *App) Greet(name string) string {
@@ -289,4 +325,48 @@ func (a *App) getSettingsPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(configDir, "analyze-log", "settings.json"), nil
+}
+
+// GetSystemResource returns current system resource usage
+//wails:export
+func (a *App) GetSystemResource() (SystemResource, error) {
+	// Get CPU usage
+	cpuPercent, err := cpu.Percent(0, false)
+	if err != nil {
+		cpuPercent = []float64{0}
+	}
+
+	// Get memory usage
+	var memStats stdruntime.MemStats
+	stdruntime.ReadMemStats(&memStats)
+
+	// Get system memory info
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		return SystemResource{
+			CPUUsage:    cpuPercent[0],
+			MemoryUsage: 0,
+			MemoryMB:    float64(memStats.Alloc) / 1024 / 1024,
+		}, nil
+	}
+
+	// Get current process memory usage
+	currentProcess, err := process.NewProcess(int32(os.Getpid()))
+	var processMem float64
+	if err == nil {
+		memInfo, err := currentProcess.MemoryInfo()
+		if err == nil {
+			processMem = float64(memInfo.RSS) / 1024 / 1024 // MB
+		} else {
+			processMem = float64(memStats.Alloc) / 1024 / 1024
+		}
+	} else {
+		processMem = float64(memStats.Alloc) / 1024 / 1024
+	}
+
+	return SystemResource{
+		CPUUsage:    cpuPercent[0],
+		MemoryUsage: (processMem / float64(vmStat.Total)) * 100 * 1024 * 1024, // Percentage
+		MemoryMB:    processMem,
+	}, nil
 }

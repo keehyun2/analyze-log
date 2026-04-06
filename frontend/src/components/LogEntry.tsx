@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { store } from '../../wailsjs/go/models';
+import { ColumnConfig } from './ColumnSettings';
+
+interface ColumnWidths {
+  timestamp: number;
+  level: number;
+  source: number;
+}
 
 interface LogEntryProps {
   entry: store.LogEntry;
   keyword?: string;
   onCopy?: () => void;
+  columnWidths?: ColumnWidths;
+  columnConfigs?: ColumnConfig[];
 }
 
 const levelBorderColors: Record<string, string> = {
@@ -23,7 +32,7 @@ const levelBgColors: Record<string, string> = {
   error: 'bg-level-error/20 text-level-error',
 };
 
-export default function LogEntry({ entry, keyword, onCopy }: LogEntryProps) {
+export default function LogEntry({ entry, keyword, onCopy, columnWidths = { timestamp: 160, level: 56, source: 128 }, columnConfigs = [] }: LogEntryProps) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const hasStackTrace = entry.message.includes('\n');
@@ -65,41 +74,73 @@ export default function LogEntry({ entry, keyword, onCopy }: LogEntryProps) {
     ));
   };
 
+  // Render column based on config
+  const renderColumn = (colKey: string) => {
+    switch (colKey) {
+      case 'timestamp':
+        return (
+          <span className="text-text-muted font-mono text-xs shrink-0" style={{ width: columnWidths.timestamp }}>
+            {formatTimestamp(entry.timestamp)}
+          </span>
+        );
+      case 'level':
+        return (
+          <span className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 text-center ${levelBgColors[levelLower]}`} style={{ width: columnWidths.level }}>
+            {entry.level}
+          </span>
+        );
+      case 'source':
+        return (
+          <span className="text-text-muted text-xs shrink-0 truncate" title={entry.source} style={{ width: columnWidths.source }}>
+            {entry.source}
+          </span>
+        );
+      case 'message':
+        return (
+          <div className={`flex-1 text-text-main font-mono text-xs truncate ${expanded ? '' : 'max-h-5 overflow-hidden'}`}>
+            {keyword ? highlightKeyword(entry.message.split('\n')[0]) : entry.message.split('\n')[0]}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const visibleColumns = columnConfigs.filter(c => c.visible);
+
   return (
-    <div className={`border-l-3 border-b border-border py-2 px-2 ${levelBorderColors[levelLower]} animate-fade-in group`}>
-      <div className="flex gap-4 items-center py-1">
-        <span className="text-gray-500 font-mono text-sm min-w-45">
-          {formatTimestamp(entry.timestamp)}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-semibold min-w-15 text-center ${levelBgColors[levelLower]}`}>
-          {entry.level}
-        </span>
-        <span className="text-gray-400 text-xs flex-1">
-          {entry.source}
-        </span>
+    <div className={`border-l-3 border-b border-border py-1 px-2 ${levelBorderColors[levelLower]} animate-fade-in group`}>
+      <div className="flex gap-3 items-center">
+        {visibleColumns.map((col) => (
+          <React.Fragment key={col.key}>
+            {renderColumn(col.key)}
+          </React.Fragment>
+        ))}
         <button
           onClick={handleCopy}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
+          className={`px-2 py-1 text-xs rounded transition-colors shrink-0 ${
             copied
               ? 'bg-green-600 text-white'
-              : 'bg-border text-gray-400 hover:bg-primary hover:text-white opacity-0 group-hover:opacity-100'
+              : 'bg-border text-text-muted hover:bg-primary hover:text-white opacity-0 group-hover:opacity-100'
           }`}
           title="Copy to clipboard"
         >
-          {copied ? '✓ Copied' : '📋 Copy'}
+          {copied ? '✓' : '📋'}
         </button>
         {hasStackTrace && (
           <span
-            className="text-gray-500 cursor-pointer select-none hover:text-gray-300"
+            className="text-text-muted cursor-pointer select-none hover:text-text-main shrink-0"
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? '▼' : '▶'}
           </span>
         )}
       </div>
-      <div className={`pl-45 text-gray-300 font-mono text-sm whitespace-pre-wrap break-all ${expanded ? '' : 'max-h-12 overflow-hidden'}`}>
-        {keyword ? highlightKeyword(entry.message) : formatMessage(entry.message)}
-      </div>
+      {expanded && hasStackTrace && (
+        <div className="text-text-main font-mono text-xs whitespace-pre-wrap break-all mt-1" style={{ paddingLeft: `calc(${columnWidths.timestamp}px + ${columnWidths.level}px + ${columnWidths.source}px + 1rem + 1rem)` }}>
+          {keyword ? highlightKeyword(entry.message) : formatMessage(entry.message)}
+        </div>
+      )}
     </div>
   );
 }

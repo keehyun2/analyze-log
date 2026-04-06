@@ -6,6 +6,7 @@ export namespace main {
 	    theme: string;
 	    fontSize: number;
 	    displayMode: string;
+	    showResourceUsage: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -18,6 +19,21 @@ export namespace main {
 	        this.theme = source["theme"];
 	        this.fontSize = source["fontSize"];
 	        this.displayMode = source["displayMode"];
+	        this.showResourceUsage = source["showResourceUsage"];
+	    }
+	}
+	export class DateRange {
+	    min: string;
+	    max: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DateRange(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.min = source["min"];
+	        this.max = source["max"];
 	    }
 	}
 	export class LoadResult {
@@ -116,6 +132,22 @@ export namespace main {
 	        this.warn = source["warn"];
 	        this.error = source["error"];
 	        this.byClass = source["byClass"];
+	    }
+	}
+	export class SystemResource {
+	    cpuUsage: number;
+	    memoryUsage: number;
+	    memoryMB: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SystemResource(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cpuUsage = source["cpuUsage"];
+	        this.memoryUsage = source["memoryUsage"];
+	        this.memoryMB = source["memoryMB"];
 	    }
 	}
 

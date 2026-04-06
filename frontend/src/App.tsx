@@ -1,19 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './index.css';
-import { LoadFile, SearchLogs, GetStats, GetSettings, SetSettings } from '../wailsjs/go/main/App';
+import { LoadFile, SearchLogs, GetStats, GetSettings, SetSettings, GetDateRange } from '../wailsjs/go/main/App';
 import { main, store } from '../wailsjs/go/models';
 import FileDropZone from './components/FileDropZone';
 import FilterBar from './components/FilterBar';
-import StatsBadge from './components/StatsBadge';
 import LogList from './components/LogList';
 import SettingsPanel from './components/SettingsPanel';
+import ColumnSettings, { ColumnConfig, getDefaultColumns } from './components/ColumnSettings';
+import ResourceMonitor from './components/ResourceMonitor';
 import ToastContainer, { Toast } from './components/Toast';
+import { useSearchHistory } from './hooks/useSearchHistory';
 
 const LOG_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'];
 const DEFAULT_PAGE_SIZE = 100;
 
-type Theme = 'dark' | 'darker' | 'midnight';
+type Theme = 'dark' | 'darker' | 'midnight' | 'light';
 type DisplayMode = 'pagination' | 'infinite-scroll';
+type SortField = 'timestamp' | 'level' | 'source' | 'message';
+type SortOrder = 'asc' | 'desc';
+
+interface ColumnWidths {
+  timestamp: number;
+  level: number;
+  source: number;
+}
 
 interface AppSettings {
   lastOpenedFile: string;
@@ -32,11 +42,14 @@ function App() {
   const [hasMore, setHasMore] = useState(true);
 
   const [selectedLevels, setSelectedLevels] = useState<string[]>(LOG_LEVELS);
-  const [selectedLevelFromBadge, setSelectedLevelFromBadge] = useState<string>('');
   const [keyword, setKeyword] = useState('');
   const [classNameFilter, setClassNameFilter] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
+  // Sort state
+  const [sortField, setSortField] = useState<SortField>('timestamp');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // Settings
   const [theme, setTheme] = useState<Theme>('dark');
@@ -44,6 +57,26 @@ function App() {
   const [displayMode, setDisplayMode] = useState<DisplayMode>('infinite-scroll');
   const [autoLoadLastFile, setAutoLoadLastFile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showResourceUsage, setShowResourceUsage] = useState(false);
+
+  // Column widths (stored in localStorage)
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => {
+    const saved = localStorage.getItem('columnWidths');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return { timestamp: 160, level: 56, source: 128 };
+  });
+
+  // Column visibility and order (stored in localStorage)
+  const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>(() => {
+    const saved = localStorage.getItem('columnConfigs');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return getDefaultColumns();
+  });
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
 
   // Toast
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -51,6 +84,15 @@ function App() {
 
   // Refs for keyboard shortcuts
   const keywordInputRef = useRef<HTMLInputElement>(null);
+
+  // Search history
+  const {
+    keywords: keywordHistory,
+    classNames: classNameHistory,
+    addToHistory,
+    removeFromHistory,
+    clearHistory,
+  } = useSearchHistory();
 
   // Load settings on startup
   useEffect(() => {
@@ -61,6 +103,7 @@ function App() {
         if (settings.theme) setTheme(settings.theme as Theme);
         if (settings.fontSize) setFontSize(settings.fontSize);
         if (settings.displayMode) setDisplayMode(settings.displayMode as DisplayMode);
+        if (settings.showResourceUsage) setShowResourceUsage(settings.showResourceUsage);
 
         // Auto-load last file if enabled
         if (settings.autoLoadLastFile && settings.lastOpenedFile) {
@@ -77,15 +120,26 @@ function App() {
   // Apply theme
   useEffect(() => {
     const root = document.documentElement;
-    const themes: Record<Theme, { bg: string; header: string; text: string; border: string }> = {
-      dark: { bg: '#1a1a2e', header: '#16213e', text: '#e5e7eb', border: '#0f3460' },
-      darker: { bg: '#0d0d1a', header: '#0a0a12', text: '#d1d5db', border: '#1a1a2e' },
-      midnight: { bg: '#0f172a', header: '#1e293b', text: '#f1f5f9', border: '#334155' },
+    const themes: Record<Theme, { bg: string; header: string; text: string; textMuted: string; border: string; levelTrace: string; levelDebug: string; levelInfo: string; levelWarn: string; levelError: string }> = {
+      dark: { bg: '#1a1a2e', header: '#16213e', text: '#e5e7eb', textMuted: '#9ca3af', border: '#0f3460', levelTrace: '#7f8c8d', levelDebug: '#95a5a6', levelInfo: '#3498db', levelWarn: '#f39c12', levelError: '#e94560' },
+      darker: { bg: '#0d0d1a', header: '#0a0a12', text: '#d1d5db', textMuted: '#6b7280', border: '#1a1a2e', levelTrace: '#7f8c8d', levelDebug: '#95a5a6', levelInfo: '#3498db', levelWarn: '#f39c12', levelError: '#e94560' },
+      midnight: { bg: '#0f172a', header: '#1e293b', text: '#f1f5f9', textMuted: '#94a3b8', border: '#334155', levelTrace: '#7f8c8d', levelDebug: '#95a5a6', levelInfo: '#3498db', levelWarn: '#f39c12', levelError: '#e94560' },
+      light: { bg: '#ffffff', header: '#f3f4f6', text: '#1f2937', textMuted: '#6b7280', border: '#e5e7eb', levelTrace: '#6b7280', levelDebug: '#9ca3af', levelInfo: '#3b82f6', levelWarn: '#f59e0b', levelError: '#ef4444' },
     };
     const current = themes[theme];
     root.style.setProperty('--color-bg-main', current.bg);
     root.style.setProperty('--color-bg-header', current.header);
     root.style.setProperty('--color-border', current.border);
+    root.style.setProperty('--color-text-main', current.text);
+    root.style.setProperty('--color-text-muted', current.textMuted);
+    root.style.setProperty('--color-level-trace', current.levelTrace);
+    root.style.setProperty('--color-level-debug', current.levelDebug);
+    root.style.setProperty('--color-level-info', current.levelInfo);
+    root.style.setProperty('--color-level-warn', current.levelWarn);
+    root.style.setProperty('--color-level-error', current.levelError);
+
+    // Set data-theme attribute for CSS targeting
+    root.setAttribute('data-theme', theme);
   }, [theme]);
 
   // Apply font size
@@ -178,10 +232,19 @@ function App() {
         const statsResult = await GetStats();
         console.log('[App] Stats result:', statsResult);
         setStats(statsResult);
-        // Then search before setting isLoaded
-        await handleSearch();
-        console.log('[App] Search completed, entries:', entries.length);
+        // Load date range
+        const dateRange = await GetDateRange();
+        // Then search before setting isLoaded - explicitly search all levels
+        console.log('[App] About to call handleSearch after file load');
+        await handleSearch(1, '', dateRange.min || '', dateRange.max || '');
+        console.log('[App] handleSearch completed');
+        // Update state after search
+        if (dateRange.min && dateRange.max) {
+          setStartTime(dateRange.min);
+          setEndTime(dateRange.max);
+        }
         setIsLoaded(true);
+        setIsLoading(false);
         showToast(`Loaded ${result.count} log entries`, 'success');
       } else {
         setErrorMessage(result.message);
@@ -210,7 +273,19 @@ function App() {
     }
   };
 
-  const handleSearch = async (searchPage: number = 1, overrideLevel?: string) => {
+  const handleSearch = async (searchPage: number = 1, overrideLevel?: string, overrideStart?: string, overrideEnd?: string) => {
+    const actualStart = overrideStart !== undefined ? overrideStart : startTime;
+    const actualEnd = overrideEnd !== undefined ? overrideEnd : endTime;
+    console.log('[App] handleSearch called with:', {
+      searchPage,
+      overrideLevel,
+      overrideStart,
+      overrideEnd,
+      actualStart,
+      actualEnd,
+      selectedLevels,
+      keyword
+    });
     setIsLoading(true);
 
     try {
@@ -227,13 +302,14 @@ function App() {
         keyword,
         level: levelToUse,
         class: classNameFilter,
-        startTime,
-        endTime,
+        startTime: overrideStart !== undefined ? overrideStart : startTime,
+        endTime: overrideEnd !== undefined ? overrideEnd : endTime,
         page: searchPage,
         pageSize: DEFAULT_PAGE_SIZE,
       };
 
       const result = await SearchLogs(query);
+      console.log('[App] SearchLogs result:', { total: result.total, entriesCount: result.entries?.length });
 
       if (displayMode === 'pagination') {
         // Pagination mode: always replace entries
@@ -290,6 +366,11 @@ function App() {
     await saveSettings({ fontSize: newSize });
   };
 
+  const handleShowResourceToggle = async (value: boolean) => {
+    setShowResourceUsage(value);
+    await saveSettings({ showResourceUsage: value });
+  };
+
   const saveSettings = async (updates: Partial<main.AppSettings>) => {
     try {
       const current = await GetSettings();
@@ -299,6 +380,7 @@ function App() {
         theme: updates.theme ?? current.theme ?? 'dark',
         fontSize: updates.fontSize ?? current.fontSize ?? 14,
         displayMode: updates.displayMode ?? current.displayMode ?? 'infinite-scroll',
+        showResourceUsage: updates.showResourceUsage ?? current.showResourceUsage ?? false,
         ...updates,
       });
     } catch (error) {
@@ -311,42 +393,110 @@ function App() {
   }, [showToast]);
 
   const handleTimePresetChange = useCallback((start: string, end: string) => {
+    console.log('[App] handleTimePresetChange called:', { start, end });
     setStartTime(start);
     setEndTime(end);
-    // Auto-search after preset is applied
-    setTimeout(() => handleSearch(1), 100);
+    // Use override params to search immediately with new values
+    handleSearch(1, undefined, start, end);
   }, [handleSearch]);
+
+  const handleSort = useCallback((field: SortField, order: SortOrder) => {
+    setSortField(field);
+    setSortOrder(order);
+
+    // Sort entries client-side
+    setEntries((prev) => {
+      const sorted = [...prev].sort((a, b) => {
+        let aVal: string | number;
+        let bVal: string | number;
+
+        switch (field) {
+          case 'timestamp':
+            aVal = a.timestamp;
+            bVal = b.timestamp;
+            break;
+          case 'level':
+            aVal = a.level;
+            bVal = b.level;
+            break;
+          case 'source':
+            aVal = a.source;
+            bVal = b.source;
+            break;
+          case 'message':
+            aVal = a.message;
+            bVal = b.message;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aVal < bVal) return order === 'asc' ? -1 : 1;
+        if (aVal > bVal) return order === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    });
+  }, []);
+
+  const handleColumnWidthChange = useCallback((column: keyof ColumnWidths, width: number) => {
+    setColumnWidths((prev) => {
+      const newWidths = { ...prev, [column]: width };
+      localStorage.setItem('columnWidths', JSON.stringify(newWidths));
+      return newWidths;
+    });
+  }, []);
+
+  const handleColumnConfigsChange = useCallback((configs: ColumnConfig[]) => {
+    setColumnConfigs(configs);
+    localStorage.setItem('columnConfigs', JSON.stringify(configs));
+  }, []);
 
   const handleLevelClick = useCallback((level: string) => {
-    const normalizedLevel = level.toLowerCase();
-    setSelectedLevelFromBadge(normalizedLevel);
-    if (level) {
-      setSelectedLevels([level]);
-      // Search immediately with the new level
-      handleSearch(1, level);
-    } else {
-      setSelectedLevels(LOG_LEVELS);
-      // Search immediately with all levels
-      handleSearch(1, '');
+    if (level === 'all') {
+      // Toggle: if all levels selected, deselect all; otherwise select all
+      setSelectedLevels((prev) => {
+        const allSelected = prev.length === LOG_LEVELS.length;
+        const newLevels = allSelected ? [] : [...LOG_LEVELS];
+
+        // Search immediately with the new levels
+        const levelParam = newLevels.length === LOG_LEVELS.length ? '' : newLevels.join(',');
+        handleSearch(1, levelParam);
+
+        return newLevels;
+      });
+      return;
     }
+
+    setSelectedLevels((prev) => {
+      const newLevels = prev.includes(level)
+        ? prev.filter((l) => l !== level)
+        : [...prev, level];
+
+      // Ensure at least one level is selected
+      const result = newLevels.length === 0 ? [level] : newLevels;
+
+      // Search immediately with the new levels
+      const levelParam = result.length === LOG_LEVELS.length ? '' : result.join(',');
+      handleSearch(1, levelParam);
+
+      return result;
+    });
   }, [handleSearch]);
 
-  // Sync selectedLevels with selectedLevelFromBadge when FilterBar checkboxes change
+  // Sync selectedLevels when FilterBar checkboxes change
   const handleLevelToggle = (level: string) => {
     setSelectedLevels((prev) => {
       const newLevels = prev.includes(level)
         ? prev.filter((l) => l !== level)
         : [...prev, level];
+
+      // Ensure at least one level is selected
       const result = newLevels.length === 0 ? [level] : newLevels;
 
-      // Update selectedLevelFromBadge based on new selection
-      if (result.length === LOG_LEVELS.length) {
-        setSelectedLevelFromBadge('');
-      } else if (result.length === 1) {
-        setSelectedLevelFromBadge(result[0].toLowerCase());
-      } else {
-        setSelectedLevelFromBadge('custom');
-      }
+      // Search immediately with the new levels
+      const levelParam = result.length === LOG_LEVELS.length ? '' : result.join(',');
+      handleSearch(1, levelParam);
 
       return result;
     });
@@ -354,29 +504,47 @@ function App() {
 
 
   return (
-    <div className="h-screen flex flex-col bg-bg-main text-gray-200 font-sans">
+    <div className="h-screen flex flex-col bg-bg-main text-text-main font-sans">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       {!isLoaded ? (
         <FileDropZone onFileLoad={handleFileLoad} isLoading={isLoading} errorMessage={errorMessage} onOpenFileDialog={handleOpenFileDialog} />
       ) : (
         <>
-          <div className="bg-bg-header px-4 py-2 border-b border-border flex justify-between items-center">
+          <div className="bg-bg-header px-3 py-1 border-b border-border flex justify-between items-center">
             <div className="flex gap-2 items-center">
               <button
                 onClick={handleOpenFileDialog}
-                className="px-3 py-1 text-sm bg-primary rounded hover:bg-primary-hover transition-colors"
+                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors"
                 title="Open another file (Ctrl+O)"
               >
-                📁 Open File
+                📁 Open
               </button>
-              {stats && <StatsBadge stats={stats} onLevelClick={handleLevelClick} selectedLevel={selectedLevelFromBadge.toLowerCase()} />}
             </div>
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="px-3 py-1 text-sm bg-border rounded hover:bg-primary transition-colors"
-            >
-              ⚙️ Settings
-            </button>
+            <div className="flex gap-3 items-center">
+              <ResourceMonitor enabled={showResourceUsage} />
+              <div className="flex gap-2 items-center relative">
+                <button
+                  onClick={() => setShowColumnSettings(!showColumnSettings)}
+                  className="px-2 py-0.5 text-xs bg-border rounded hover:bg-primary transition-colors"
+                  title="Column settings"
+                >
+                  🔲
+                </button>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="px-2 py-0.5 text-xs bg-border rounded hover:bg-primary transition-colors"
+                >
+                  ⚙️
+                </button>
+                {showColumnSettings && (
+                  <ColumnSettings
+                    columns={columnConfigs}
+                    onColumnsChange={handleColumnConfigsChange}
+                    onClose={() => setShowColumnSettings(false)}
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
           {showSettings && (
@@ -389,6 +557,8 @@ function App() {
               onDisplayModeChange={handleDisplayModeChange}
               autoLoadLastFile={autoLoadLastFile}
               onAutoLoadToggle={handleAutoLoadToggle}
+              showResourceUsage={showResourceUsage}
+              onShowResourceToggle={handleShowResourceToggle}
               onClose={() => setShowSettings(false)}
             />
           )}
@@ -405,10 +575,21 @@ function App() {
             onStartTimeChange={setStartTime}
             endTime={endTime}
             onEndTimeChange={setEndTime}
-            onSearch={() => handleSearch(1)}
+            onSearch={(overrideStart, overrideEnd) => handleSearch(1, undefined, overrideStart, overrideEnd)}
             keywordInputRef={keywordInputRef}
             onTimePresetChange={handleTimePresetChange}
             showLevels={false}
+            stats={stats}
+            onLevelClickFromBadge={handleLevelClick}
+            selectedLevelsFromBadge={selectedLevels.map(l => l.toLowerCase())}
+            keywordHistory={keywordHistory}
+            classNameHistory={classNameHistory}
+            onAddToKeywordHistory={(value) => addToHistory('keywords', value)}
+            onAddToClassNameHistory={(value) => addToHistory('classNames', value)}
+            onRemoveFromKeywordHistory={(value) => removeFromHistory('keywords', value)}
+            onRemoveFromClassNameHistory={(value) => removeFromHistory('classNames', value)}
+            onClearKeywordHistory={() => clearHistory('keywords')}
+            onClearClassNameHistory={() => clearHistory('classNames')}
           />
 
           <LogList
@@ -424,6 +605,12 @@ function App() {
             displayMode={displayMode}
             keyword={keyword}
             onCopyEntry={handleCopyEntry}
+            onSort={handleSort}
+            sortField={sortField}
+            sortOrder={sortOrder}
+            columnWidths={columnWidths}
+            onColumnWidthChange={handleColumnWidthChange}
+            columnConfigs={columnConfigs}
           />
         </>
       )}

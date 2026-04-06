@@ -1,4 +1,4 @@
-type Theme = 'dark' | 'darker' | 'midnight';
+type Theme = 'dark' | 'darker' | 'midnight' | 'light';
 type DisplayMode = 'pagination' | 'infinite-scroll';
 
 interface SettingsPanelProps {
@@ -10,6 +10,8 @@ interface SettingsPanelProps {
   onDisplayModeChange: (mode: DisplayMode) => void;
   autoLoadLastFile: boolean;
   onAutoLoadToggle: (value: boolean) => void;
+  showResourceUsage: boolean;
+  onShowResourceToggle: (value: boolean) => void;
   onClose: () => void;
 }
 
@@ -17,6 +19,7 @@ const themes: { value: Theme; label: string; preview: string }[] = [
   { value: 'dark', label: 'Dark', preview: '#1a1a2e' },
   { value: 'darker', label: 'Darker', preview: '#0d0d1a' },
   { value: 'midnight', label: 'Midnight', preview: '#0f172a' },
+  { value: 'light', label: 'Light', preview: '#f3f4f6' },
 ];
 
 const displayModes: { value: DisplayMode; label: string; description: string }[] = [
@@ -24,7 +27,7 @@ const displayModes: { value: DisplayMode; label: string; description: string }[]
   { value: 'infinite-scroll', label: 'Infinite Scroll', description: 'Automatically load more entries as you scroll' },
 ];
 
-export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, displayMode, onDisplayModeChange, autoLoadLastFile, onAutoLoadToggle, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, displayMode, onDisplayModeChange, autoLoadLastFile, onAutoLoadToggle, showResourceUsage, onShowResourceToggle, onClose }: SettingsPanelProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
@@ -38,7 +41,7 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
           <h2 className="text-xl font-semibold">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white text-2xl transition-colors"
+            className="text-text-muted hover:text-text-main text-2xl transition-colors"
           >
             ×
           </button>
@@ -47,7 +50,7 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
       <div className="flex gap-8 flex-wrap">
         {/* Display Mode Selection */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm text-gray-400">Scroll Mode</label>
+          <label className="text-sm text-text-muted">Scroll Mode</label>
           <div className="flex gap-2">
             {displayModes.map((mode) => (
               <button
@@ -68,7 +71,7 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
 
         {/* Theme Selection */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm text-gray-400">Theme</label>
+          <label className="text-sm text-text-muted">Theme</label>
           <div className="flex gap-2">
             {themes.map((t) => (
               <button
@@ -89,7 +92,7 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
 
         {/* Font Size */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm text-gray-400">
+          <label className="text-sm text-text-muted">
             Font Size: {fontSize}px
           </label>
           <div className="flex items-center gap-3">
@@ -118,7 +121,7 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
 
         {/* Auto Load Last File */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm text-gray-400">Startup</label>
+          <label className="text-sm text-text-muted">Startup</label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -126,7 +129,21 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
               onChange={(e) => onAutoLoadToggle(e.target.checked)}
               className="w-4 h-4 rounded"
             />
-            <span className="text-sm">Auto-load last file</span>
+            <span className="text-sm text-text-main">Auto-load last file</span>
+          </label>
+        </div>
+
+        {/* Resource Monitor */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-text-muted">Display</label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showResourceUsage}
+              onChange={(e) => onShowResourceToggle(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <span className="text-sm text-text-main">Show CPU & Memory</span>
           </label>
         </div>
       </div>

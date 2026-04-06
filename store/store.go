@@ -271,11 +271,15 @@ func (s *Store) Search(q SearchQuery) (*SearchResult, error) {
 	}
 
 	// Get total count
+	fmt.Printf("[Store] Search query: %s\n", query)
+	fmt.Printf("[Store] Count query: %s\n", countQuery)
+	fmt.Printf("[Store] Args: %+v\n", args)
 	var total int
 	err := s.db.QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("store: count failed: %w", err)
 	}
+	fmt.Printf("[Store] Total count: %d\n", total)
 
 	// Add ordering and pagination
 	query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
@@ -384,6 +388,37 @@ func (s *Store) GetStats() (*Stats, error) {
 	}
 
 	return stats, nil
+}
+
+// DateRange holds min and max timestamps
+type DateRange struct {
+	Min string
+	Max string
+}
+
+// GetDateRange returns the minimum and maximum timestamps from log entries
+func (s *Store) GetDateRange() (*DateRange, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var min, max string
+
+	// Get min timestamp
+	err := s.db.QueryRow("SELECT MIN(timestamp) FROM log_entries").Scan(&min)
+	if err != nil {
+		return nil, fmt.Errorf("store: min timestamp failed: %w", err)
+	}
+
+	// Get max timestamp
+	err = s.db.QueryRow("SELECT MAX(timestamp) FROM log_entries").Scan(&max)
+	if err != nil {
+		return nil, fmt.Errorf("store: max timestamp failed: %w", err)
+	}
+
+	return &DateRange{
+		Min: min,
+		Max: max,
+	}, nil
 }
 
 // Close closes the database connection and removes the temp file

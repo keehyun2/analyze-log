@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models';
 interface StatsBadgeProps {
   stats: main.Stats | null;
   onLevelClick?: (level: string) => void;
-  selectedLevel?: string;
+  selectedLevels?: string[];
 }
 
 const levelStyles: Record<string, string> = {
@@ -15,7 +15,7 @@ const levelStyles: Record<string, string> = {
   trace: 'bg-level-trace',
 };
 
-export default function StatsBadge({ stats, onLevelClick, selectedLevel }: StatsBadgeProps) {
+export default function StatsBadge({ stats, onLevelClick, selectedLevels = [] }: StatsBadgeProps) {
   if (!stats || stats.total === 0) {
     return null;
   }
@@ -29,22 +29,22 @@ export default function StatsBadge({ stats, onLevelClick, selectedLevel }: Stats
   ];
 
   return (
-    <div className="flex gap-4 px-8 py-3 bg-bg-header border-b border-border flex-wrap items-center">
+    <div className="flex gap-2 px-3 py-1 bg-bg-header border-b border-border flex-wrap items-center">
       <div
-        className={`px-3 py-1 rounded text-sm font-medium cursor-pointer transition-all ${levelStyles.total} ${selectedLevel === 'total' ? 'ring-2 ring-white' : ''}`}
+        className={`px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-all ${levelStyles.total} ${selectedLevels.length === 0 ? 'ring-2 ring-primary' : ''}`}
         onClick={() => onLevelClick?.('')}
         title="Show all levels"
       >
-        Total: {stats.total}
+        All:{stats.total}
       </div>
       {levels.filter(l => l.value > 0).map((level) => (
         <div
           key={level.key}
-          className={`px-3 py-1 rounded text-sm font-medium cursor-pointer transition-all hover:opacity-80 ${level.style} ${selectedLevel === level.key ? 'ring-2 ring-white' : ''}`}
+          className={`px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-all hover:opacity-80 ${level.style} ${selectedLevels.includes(level.key) ? 'ring-2 ring-primary' : ''}`}
           onClick={() => onLevelClick?.(level.label.toUpperCase())}
           title={`Filter by ${level.label}`}
         >
-          {level.label}: {level.value}
+          {level.key.charAt(0).toUpperCase() + level.key.slice(1)}:{level.value}
         </div>
       ))}
     </div>

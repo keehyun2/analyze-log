@@ -27,15 +27,15 @@ export default function FileDropZone({ onFileLoad, isLoading, errorMessage, onOp
         ) : (
           <>
             <div className="text-6xl mb-4">📄</div>
-            <p className="text-xl my-2">Select a log file to analyze</p>
+            <p className="text-xl my-2 text-text-main">Select a log file to analyze</p>
             <button
               className="mt-4 px-8 py-3 bg-primary text-white rounded cursor-pointer transition-colors duration-300 text-base hover:bg-primary-hover"
               onClick={onOpenFileDialog}
             >
               Browse Files
             </button>
-            <p className="text-sm text-gray-500 mt-4">
-              Press <kbd className="px-2 py-1 bg-border rounded text-gray-400">Ctrl+O</kbd> to open file
+            <p className="text-sm text-text-muted mt-4">
+              Press <kbd className="px-2 py-1 bg-border rounded text-text-muted">Ctrl+O</kbd> to open file
             </p>
           </>
         )}

@@ -15,7 +15,11 @@
       "Bash(npm install:*)",
       "Bash(go run:*)",
       "Bash(wails build:*)",
-      "Bash(C:/dev/analyze-log/build/bin/analyze-log.exe:*)"
+      "Bash(C:/dev/analyze-log/build/bin/analyze-log.exe:*)",
+      "mcp__filesystem__create_directory",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
