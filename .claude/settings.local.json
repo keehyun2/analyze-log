@@ -19,7 +19,12 @@
       "mcp__filesystem__create_directory",
       "Bash(npx tsc:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m ':*)"
+      "Bash(git commit -m ':*)",
+      "Bash(gh repo:*)",
+      "Bash(git commit -m 'ci: Add GitHub Actions workflow for cross-platform builds:*)",
+      "Bash(git push:*)",
+      "Bash(git commit -m 'ci: Windows-only build with Slack notifications:*)",
+      "Bash(gh secret:*)"
     ]
   }
 }

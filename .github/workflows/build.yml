@@ -2,11 +2,8 @@ name: Build Windows
 
 on:
   push:
-    branches: [master, main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [master, main]
 
 jobs:
   build:
@@ -74,7 +71,7 @@ jobs:
         shell: bash
         run: |
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Output:* ${{ env.OUTPUT }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions 보기>\"}" \
+            --data "{\"text\":\":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Output:* ${{ env.OUTPUT }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions>\"}" \
             ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Slack - Build Failed
