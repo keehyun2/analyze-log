@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wails init:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(mv /c/dev/analyze-log/analyze-log/* /c/dev/analyze-log/)",
+      "Bash(mv /c/dev/analyze-log/analyze-log/.* /c/dev/analyze-log/)"
+    ]
+  }
+}
