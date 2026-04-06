@@ -52,6 +52,7 @@ func (a *App) GetStats() (Stats, error) { ... }
 - Wails 자동생성 타입 (`frontend/wailsjs/go/`) 그대로 사용
 - 컴포넌트는 `components/` 디렉토리에 기능별 분리
 - 상태관리: useState/useReducer로 충분, 외부 라이브러리 불필요
+- **브라우저 가상 요소 사용 금지** (`::-webkit-`, `::-moz-` 등 - 크로스 브라우저 호환성 문제)
 
 ---
 

@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"analyze-log/parser"
 	"analyze-log/store"
@@ -14,6 +17,15 @@ import (
 type App struct {
 	ctx   context.Context
 	store *store.Store
+}
+
+// AppSettings holds application settings
+type AppSettings struct {
+	LastOpenedFile   string `json:"lastOpenedFile"`
+	AutoLoadLastFile bool   `json:"autoLoadLastFile"`
+	Theme            string `json:"theme"`
+	FontSize         int    `json:"fontSize"`
+	DisplayMode      string `json:"displayMode"`
 }
 
 // NewApp creates a new App application struct
@@ -76,6 +88,11 @@ func (a *App) LoadFile(path string) (LoadResult, error) {
 				Message: fmt.Sprintf("Insert failed: %v", err),
 			}, err
 		}
+	}
+
+	// Save to settings
+	if err := a.SaveLastFile(path); err != nil {
+		fmt.Printf("[App] Failed to save last file: %v\n", err)
 	}
 
 	return LoadResult{
@@ -198,4 +215,78 @@ func (a *App) OpenFileDialog() (string, error) {
 		return "", err
 	}
 	return selection, nil
+}
+
+// GetSettings returns the current application settings
+//wails:export
+func (a *App) GetSettings() (AppSettings, error) {
+	settingsPath, err := a.getSettingsPath()
+	if err != nil {
+		return AppSettings{AutoLoadLastFile: false}, nil
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return AppSettings{AutoLoadLastFile: false}, nil
+		}
+		return AppSettings{AutoLoadLastFile: false}, err
+	}
+
+	var settings AppSettings
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return AppSettings{AutoLoadLastFile: false}, err
+	}
+
+	return settings, nil
+}
+
+// SetSettings updates the application settings
+//wails:export
+func (a *App) SetSettings(settings AppSettings) error {
+	settingsPath, err := a.getSettingsPath()
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0755); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(settingsPath, data, 0644)
+}
+
+// GetLastFile returns the last opened file path
+//wails:export
+func (a *App) GetLastFile() (string, error) {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return "", err
+	}
+	return settings.LastOpenedFile, nil
+}
+
+// SaveLastFile saves the last opened file path
+func (a *App) SaveLastFile(path string) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+	settings.LastOpenedFile = path
+	return a.SetSettings(settings)
+}
+
+// getSettingsPath returns the path to the settings file
+func (a *App) getSettingsPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "analyze-log", "settings.json"), nil
 }

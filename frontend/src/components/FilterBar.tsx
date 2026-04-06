@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { main } from '../../wailsjs/go/models';
 
 interface FilterBarProps {
@@ -14,6 +14,9 @@ interface FilterBarProps {
   endTime: string;
   onEndTimeChange: (value: string) => void;
   onSearch: () => void;
+  keywordInputRef?: React.RefObject<HTMLInputElement>;
+  onTimePresetChange?: (start: string, end: string) => void;
+  showLevels?: boolean; // New prop to control visibility
 }
 
 const LOG_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'];
@@ -24,6 +27,55 @@ const levelColors: Record<string, string> = {
   info: 'text-level-info',
   warn: 'text-level-warn',
   error: 'text-level-error',
+};
+
+type TimePreset = '1h' | '24h' | '7d' | 'today' | 'yesterday';
+
+const timePresets: { value: TimePreset; label: string }[] = [
+  { value: '1h', label: 'Last 1h' },
+  { value: '24h', label: 'Last 24h' },
+  { value: '7d', label: 'Last 7d' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+];
+
+const getTimeRangeForPreset = (preset: TimePreset): { start: string; end: string } => {
+  const now = new Date();
+  const formatDateTime = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
+
+  let start: Date;
+  const end = now;
+
+  switch (preset) {
+    case '1h':
+      start = new Date(now.getTime() - 60 * 60 * 1000);
+      break;
+    case '24h':
+      start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case '7d':
+      start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case 'today':
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      break;
+    case 'yesterday':
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
+      const yesterdayEnd = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+      return { start: formatDateTime(start), end: formatDateTime(yesterdayEnd) };
+  }
+
+  return { start: formatDateTime(start), end: formatDateTime(end) };
 };
 
 // datetime-local input format: YYYY-MM-DDTHH:mm
@@ -51,8 +103,20 @@ export default function FilterBar({
   endTime,
   onEndTimeChange,
   onSearch,
+  keywordInputRef,
+  onTimePresetChange,
+  showLevels = false, // Default to false
 }: FilterBarProps) {
   const [showTimeFilters, setShowTimeFilters] = useState(false);
+  const internalKeywordRef = useRef<HTMLInputElement>(null);
+  const inputRef = keywordInputRef || internalKeywordRef;
+
+  // Focus the input when requested
+  useEffect(() => {
+    if (keywordInputRef && keywordInputRef.current) {
+      keywordInputRef.current.focus();
+    }
+  }, [keywordInputRef]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -70,27 +134,30 @@ export default function FilterBar({
 
   return (
     <div className="flex gap-4 px-8 py-4 bg-bg-header border-b border-border flex-wrap items-center">
-      <div className="flex gap-2 items-center">
-        <label className="text-sm text-gray-400">Levels:</label>
-        {LOG_LEVELS.map((level) => (
-          <label key={level} className="flex items-center gap-1 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selectedLevels.includes(level)}
-              onChange={() => onLevelToggle(level)}
-              className="cursor-pointer"
-            />
-            <span className={`text-sm font-medium px-1 py-0.5 rounded ${levelColors[level.toLowerCase()]}`}>
-              {level}
-            </span>
-          </label>
-        ))}
-      </div>
+      {showLevels && (
+        <div className="flex gap-2 items-center">
+          <label className="text-sm text-gray-400">Levels:</label>
+          {LOG_LEVELS.map((level) => (
+            <label key={level} className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedLevels.includes(level)}
+                onChange={() => onLevelToggle(level)}
+                className="cursor-pointer"
+              />
+              <span className={`text-sm font-medium px-1 py-0.5 rounded ${levelColors[level.toLowerCase()]}`}>
+                {level}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 items-center">
         <input
+          ref={inputRef}
           type="text"
-          placeholder="Keyword..."
+          placeholder="Keyword... (Ctrl+F)"
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -108,6 +175,25 @@ export default function FilterBar({
           className="px-3 py-2 border border-border rounded bg-bg-main text-gray-200 text-sm focus:outline-none focus:border-primary"
         />
       </div>
+
+      {/* Time Filter Presets */}
+      {onTimePresetChange && (
+        <div className="flex gap-1 items-center">
+          {timePresets.map((preset) => (
+            <button
+              key={preset.value}
+              onClick={() => {
+                const { start, end } = getTimeRangeForPreset(preset.value);
+                onTimePresetChange(start, end);
+              }}
+              className="px-2 py-1 text-xs border border-border rounded bg-bg-header text-gray-400 hover:border-primary hover:text-primary transition-colors"
+              title={`Set time range to ${preset.label}`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 items-center">
         <button
@@ -128,14 +214,16 @@ export default function FilterBar({
             type="datetime-local"
             value={toDateTimeLocal(startTime)}
             onChange={handleStartTimeChange}
-            className="px-3 py-2 border border-border rounded bg-bg-main text-gray-200 text-sm focus:outline-none focus:border-primary"
+            className="w-56 px-3 py-2 border border-border rounded bg-bg-main text-white text-sm focus:outline-none focus:border-primary"
+            style={{ colorScheme: 'dark' }}
           />
           <span className="text-gray-500">~</span>
           <input
             type="datetime-local"
             value={toDateTimeLocal(endTime)}
             onChange={handleEndTimeChange}
-            className="px-3 py-2 border border-border rounded bg-bg-main text-gray-200 text-sm focus:outline-none focus:border-primary"
+            className="w-56 px-3 py-2 border border-border rounded bg-bg-main text-white text-sm focus:outline-none focus:border-primary"
+            style={{ colorScheme: 'dark' }}
           />
           {(startTime || endTime) && (
             <button

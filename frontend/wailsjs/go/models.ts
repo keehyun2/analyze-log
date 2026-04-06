@@ -1,5 +1,25 @@
 export namespace main {
 	
+	export class AppSettings {
+	    lastOpenedFile: string;
+	    autoLoadLastFile: boolean;
+	    theme: string;
+	    fontSize: number;
+	    displayMode: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.lastOpenedFile = source["lastOpenedFile"];
+	        this.autoLoadLastFile = source["autoLoadLastFile"];
+	        this.theme = source["theme"];
+	        this.fontSize = source["fontSize"];
+	        this.displayMode = source["displayMode"];
+	    }
+	}
 	export class LoadResult {
 	    success: boolean;
 	    message: string;

@@ -1,10 +1,15 @@
 type Theme = 'dark' | 'darker' | 'midnight';
+type DisplayMode = 'pagination' | 'infinite-scroll';
 
 interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   fontSize: number;
   onFontSizeChange: (size: number) => void;
+  displayMode: DisplayMode;
+  onDisplayModeChange: (mode: DisplayMode) => void;
+  autoLoadLastFile: boolean;
+  onAutoLoadToggle: (value: boolean) => void;
   onClose: () => void;
 }
 
@@ -14,20 +19,53 @@ const themes: { value: Theme; label: string; preview: string }[] = [
   { value: 'midnight', label: 'Midnight', preview: '#0f172a' },
 ];
 
-export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, onClose }: SettingsPanelProps) {
+const displayModes: { value: DisplayMode; label: string; description: string }[] = [
+  { value: 'pagination', label: 'Pagination', description: 'Show 100 entries per page with navigation buttons' },
+  { value: 'infinite-scroll', label: 'Infinite Scroll', description: 'Automatically load more entries as you scroll' },
+];
+
+export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, displayMode, onDisplayModeChange, autoLoadLastFile, onAutoLoadToggle, onClose }: SettingsPanelProps) {
   return (
-    <div className="bg-bg-header border-b border-border px-8 py-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Settings</h2>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white text-xl"
-        >
-          ×
-        </button>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
+        onClick={onClose}
+      />
+      {/* Modal Content */}
+      <div className="relative bg-bg-header border border-border rounded-lg shadow-2xl px-8 py-6 max-w-3xl w-full mx-4 animate-scale-in">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Settings</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-2xl transition-colors"
+          >
+            ×
+          </button>
+        </div>
 
       <div className="flex gap-8 flex-wrap">
+        {/* Display Mode Selection */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-gray-400">Scroll Mode</label>
+          <div className="flex gap-2">
+            {displayModes.map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => onDisplayModeChange(mode.value)}
+                className={`px-4 py-2 rounded transition-all text-sm ${
+                  displayMode === mode.value
+                    ? 'bg-primary text-white'
+                    : 'bg-border hover:bg-primary/70'
+                }`}
+                title={mode.description}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Theme Selection */}
         <div className="flex flex-col gap-2">
           <label className="text-sm text-gray-400">Theme</label>
@@ -77,6 +115,31 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
             </button>
           </div>
         </div>
+
+        {/* Auto Load Last File */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-gray-400">Startup</label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoLoadLastFile}
+              onChange={(e) => onAutoLoadToggle(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <span className="text-sm">Auto-load last file</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex justify-end pt-4 border-t border-border">
+        <button
+          onClick={onClose}
+          className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+        >
+          Done
+        </button>
+      </div>
       </div>
     </div>
   );
