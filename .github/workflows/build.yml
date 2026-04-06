@@ -1,4 +1,4 @@
-name: Build
+name: Build Windows
 
 on:
   push:
@@ -10,27 +10,7 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - goos: windows
-            goarch: amd64
-            os: windows-latest
-            output: analyze-log.exe
-          - goos: darwin
-            goarch: amd64
-            os: macos-latest
-            output: analyze-log
-          - goos: darwin
-            goarch: arm64
-            os: macos-latest
-            output: analyze-log-arm
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            output: analyze-log
-
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -56,37 +36,40 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Build
+      - name: Notify Slack - Build Started
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Build Started",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":construction: *Build Started*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}"
+                  }
+                }
+              ]
+            }
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
-        run: wails build -clean -platform ${{ matrix.goos }}/${{ matrix.goarch }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Set output filename
-        shell: bash
-        run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            echo "OUTPUT=analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}.exe" >> $GITHUB_ENV
-          else
-            echo "OUTPUT=analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}" >> $GITHUB_ENV
-          fi
+      - name: Build
+        id: build
+        run: wails build -clean
 
       - name: Rename output
-        shell: bash
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            mv build/bin/analyze-log.exe ${{ env.OUTPUT }}
-          elif [ "${{ matrix.goos }}" = "darwin" ] && [ "${{ matrix.goarch }}" = "arm64" ]; then
-            mv build/bin/analyze-log-arm ${{ env.OUTPUT }}
-          else
-            mv build/bin/analyze-log ${{ env.OUTPUT }}
-          fi
+          $version = if ("${{ github.ref_name }}" -match "^v.*") { "${{ github.ref_name }}" } else { "latest" }
+          mv build/bin/analyze-log.exe "analyze-log-windows-$version.exe"
+          echo "OUTPUT=analyze-log-windows-$version.exe" >> $env:GITHUB_ENV
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: analyze-log-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: analyze-log-windows
           path: ${{ env.OUTPUT }}
 
       - name: Create Release (on tag)
@@ -98,3 +81,69 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Slack - Build Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Build Success",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}\n*Output:* ${{ env.OUTPUT }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Actions"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack - Build Failed
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Build Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":x: *Build Failed*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Logs"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
