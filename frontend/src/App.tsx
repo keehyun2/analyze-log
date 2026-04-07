@@ -105,6 +105,34 @@ function App() {
   // Refs for keyboard shortcuts
   const keywordInputRef = useRef<HTMLInputElement>(null);
 
+  // Refs for current search params (used by auto-refresh to avoid stale closures)
+  const searchParamsRef = useRef({
+    currentPage,
+    keyword,
+    selectedLevels,
+    classNameFilter,
+    startTime,
+    endTime,
+    sortField,
+    sortOrder,
+    displayMode,
+  });
+
+  // Keep search params ref in sync with state
+  useEffect(() => {
+    searchParamsRef.current = {
+      currentPage,
+      keyword,
+      selectedLevels,
+      classNameFilter,
+      startTime,
+      endTime,
+      sortField,
+      sortOrder,
+      displayMode,
+    };
+  }, [currentPage, keyword, selectedLevels, classNameFilter, startTime, endTime, sortField, sortOrder, displayMode]);
+
   // Search history
   const {
     keywords: keywordHistory,
@@ -308,7 +336,7 @@ function App() {
     }
   };
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     if (!isLoaded) return;
 
     setIsLoading(true);
@@ -320,8 +348,40 @@ function App() {
           // Refresh stats and search
           const statsResult = await GetStats();
           setStats(statsResult);
-          // Reload current search
-          await handleSearch(currentPage);
+          // Update date range (new entries may extend the end time)
+          const dateRange = await GetDateRange();
+          const newEndTime = dateRange.max || '';
+          setEndTime(newEndTime);
+
+          // Reload current search using current params from ref with updated end time
+          const params = searchParamsRef.current;
+          const levelToUse = params.selectedLevels.length === LOG_LEVELS.length ? '' : params.selectedLevels.join(',');
+
+          const query: main.SearchQuery = {
+            keyword: params.keyword,
+            level: levelToUse,
+            class: params.classNameFilter,
+            startTime: params.startTime,
+            endTime: newEndTime,  // Use the updated end time
+            page: params.currentPage,
+            pageSize: DEFAULT_PAGE_SIZE,
+            sortField: params.sortField,
+            sortOrder: params.sortOrder,
+          };
+
+          const searchResult = await SearchLogs(query);
+
+          if (params.displayMode === 'pagination') {
+            setEntries(searchResult.entries || []);
+            setCurrentPage(params.currentPage);
+          } else {
+            // Infinite scroll: always reset to page 1 on refresh to show newest first
+            setEntries(searchResult.entries || []);
+            setCurrentPage(1);
+          }
+
+          setTotal(searchResult.total || 0);
+          setHasMore((searchResult.entries?.length || 0) === DEFAULT_PAGE_SIZE && (searchResult.entries?.length || 0) < (searchResult.total || 0));
         } else {
           showToast('No new entries', 'info');
         }
@@ -334,7 +394,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoaded, showToast]);
 
   // Auto refresh timer
   useEffect(() => {
@@ -345,7 +405,7 @@ function App() {
     }, autoRefreshInterval * 1000);
 
     return () => clearInterval(interval);
-  }, [autoRefreshEnabled, autoRefreshInterval, isLoaded]);
+  }, [autoRefreshEnabled, autoRefreshInterval, isLoaded, handleRefresh]);
 
   const handleSearch = async (searchPage: number = 1, overrideLevel?: string, overrideStart?: string, overrideEnd?: string) => {
     const actualStart = overrideStart !== undefined ? overrideStart : startTime;
@@ -619,46 +679,48 @@ function App() {
             <div className="flex gap-2 items-center">
               <button
                 onClick={handleOpenFileDialog}
-                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors flex items-center gap-1"
+                className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors flex items-center gap-1.5"
                 title="Open another file (Ctrl+O)"
               >
-                <FolderOpenIcon size={14} /> Open
+                <FolderOpenIcon size={12} /> Open
               </button>
               <button
                 onClick={handleRefresh}
                 disabled={isLoading}
-                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 title="Refresh logs (F5)"
               >
-                <RefreshIcon size={14} /> Refresh
+                <RefreshIcon size={12} /> Refresh
               </button>
             </div>
             <div className="flex gap-3 items-center">
               <ResourceMonitor enabled={showResourceUsage} />
-              <div className="flex gap-2 items-center relative">
+              <div className="flex gap-2 items-center">
                 <button
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
-                  className="p-1 text-xs bg-border rounded hover:bg-primary transition-colors"
+                  className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors flex items-center gap-1.5"
                   title="Column settings"
                 >
-                  <ColumnIcon size={14} />
+                  <ColumnIcon size={12} /> Columns
                 </button>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="p-1 text-xs bg-border rounded hover:bg-primary transition-colors"
+                  className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors flex items-center gap-1.5"
+                  title="Settings"
                 >
-                  <SettingsIcon size={14} />
+                  <SettingsIcon size={12} /> Settings
                 </button>
-                {showColumnSettings && (
-                  <ColumnSettings
-                    columns={columnConfigs}
-                    onColumnsChange={handleColumnConfigsChange}
-                    onClose={() => setShowColumnSettings(false)}
-                  />
-                )}
               </div>
             </div>
           </div>
+
+          {showColumnSettings && (
+            <ColumnSettings
+              columns={columnConfigs}
+              onColumnsChange={handleColumnConfigsChange}
+              onClose={() => setShowColumnSettings(false)}
+            />
+          )}
 
           {showSettings && (
             <SettingsPanel
