@@ -18,6 +18,8 @@ export function LoadFile(arg1:string):Promise<main.LoadResult>;
 
 export function OpenFileDialog():Promise<string>;
 
+export function RefreshLogs():Promise<main.RefreshResult>;
+
 export function SaveLastFile(arg1:string):Promise<void>;
 
 export function SearchLogs(arg1:main.SearchQuery):Promise<main.SearchResult>;

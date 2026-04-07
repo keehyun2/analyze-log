@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { CloseIcon, GripVerticalIcon } from './Icons';
 
-export type ColumnKey = 'timestamp' | 'level' | 'source' | 'message';
+export type ColumnKey = 'detail' | 'timestamp' | 'level' | 'source' | 'message';
 
 export interface ColumnConfig {
   key: ColumnKey;
@@ -9,6 +10,7 @@ export interface ColumnConfig {
 }
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { key: 'detail', label: 'Detail', visible: true },
   { key: 'timestamp', label: 'Time', visible: true },
   { key: 'level', label: 'Level', visible: true },
   { key: 'source', label: 'Source', visible: true },
@@ -67,9 +69,9 @@ export default function ColumnSettings({ columns, onColumnsChange, onClose }: Co
         <h3 className="text-sm font-semibold text-text-main">Column Settings</h3>
         <button
           onClick={onClose}
-          className="text-text-muted hover:text-text-main text-lg leading-none"
+          className="text-text-muted hover:text-text-main p-1"
         >
-          ×
+          <CloseIcon size={14} />
         </button>
       </div>
       <div className="p-2 max-h-64 overflow-y-auto">
@@ -84,7 +86,7 @@ export default function ColumnSettings({ columns, onColumnsChange, onClose }: Co
               draggedIndex === index ? 'bg-primary/20' : 'hover:bg-bg-main'
             }`}
           >
-            <span className="text-text-muted cursor-grab">⋮⋮</span>
+            <GripVerticalIcon className="text-text-muted cursor-grab" size={14} />
             <input
               type="checkbox"
               checked={col.visible}

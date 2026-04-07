@@ -1,6 +1,28 @@
 type Theme = 'dark' | 'darker' | 'midnight' | 'light';
 type DisplayMode = 'pagination' | 'infinite-scroll';
 
+// Toggle Switch Component
+function ToggleSwitch({ checked, onChange, disabled = false }: { checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-header ${
+        checked ? 'bg-primary' : 'bg-border'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      role="switch"
+      aria-checked={checked}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
+
 interface SettingsPanelProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
@@ -12,6 +34,10 @@ interface SettingsPanelProps {
   onAutoLoadToggle: (value: boolean) => void;
   showResourceUsage: boolean;
   onShowResourceToggle: (value: boolean) => void;
+  autoRefreshEnabled: boolean;
+  onAutoRefreshEnabledChange: (value: boolean) => void;
+  autoRefreshInterval: number;
+  onAutoRefreshIntervalChange: (value: number) => void;
   onClose: () => void;
 }
 
@@ -27,7 +53,7 @@ const displayModes: { value: DisplayMode; label: string; description: string }[]
   { value: 'infinite-scroll', label: 'Infinite Scroll', description: 'Automatically load more entries as you scroll' },
 ];
 
-export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, displayMode, onDisplayModeChange, autoLoadLastFile, onAutoLoadToggle, showResourceUsage, onShowResourceToggle, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSizeChange, displayMode, onDisplayModeChange, autoLoadLastFile, onAutoLoadToggle, showResourceUsage, onShowResourceToggle, autoRefreshEnabled, onAutoRefreshEnabledChange, autoRefreshInterval, onAutoRefreshIntervalChange, onClose }: SettingsPanelProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
@@ -122,29 +148,43 @@ export default function SettingsPanel({ theme, onThemeChange, fontSize, onFontSi
         {/* Auto Load Last File */}
         <div className="flex flex-col gap-2">
           <label className="text-sm text-text-muted">Startup</label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoLoadLastFile}
-              onChange={(e) => onAutoLoadToggle(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
+          <div className="flex items-center gap-2">
+            <ToggleSwitch checked={autoLoadLastFile} onChange={onAutoLoadToggle} />
             <span className="text-sm text-text-main">Auto-load last file</span>
-          </label>
+          </div>
         </div>
 
         {/* Resource Monitor */}
         <div className="flex flex-col gap-2">
           <label className="text-sm text-text-muted">Display</label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showResourceUsage}
-              onChange={(e) => onShowResourceToggle(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
+          <div className="flex items-center gap-2">
+            <ToggleSwitch checked={showResourceUsage} onChange={onShowResourceToggle} />
             <span className="text-sm text-text-main">Show CPU & Memory</span>
-          </label>
+          </div>
+        </div>
+
+        {/* Auto Refresh */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-text-muted">Auto Refresh</label>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <ToggleSwitch checked={autoRefreshEnabled} onChange={onAutoRefreshEnabledChange} />
+              <span className="text-sm text-text-main">Enable</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-muted">every</span>
+              <input
+                type="number"
+                min="5"
+                max="600"
+                value={autoRefreshInterval}
+                onChange={(e) => onAutoRefreshIntervalChange(Math.max(5, Math.min(600, parseInt(e.target.value) || 60)))}
+                disabled={!autoRefreshEnabled}
+                className="w-16 px-2 py-1 bg-border border border-border rounded text-sm text-text-main disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <span className="text-sm text-text-muted">seconds</span>
+            </div>
+          </div>
         </div>
       </div>
 

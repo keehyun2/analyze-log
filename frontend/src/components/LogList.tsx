@@ -3,9 +3,10 @@ import { Virtuoso } from 'react-virtuoso';
 import { store } from '../../wailsjs/go/models';
 import LogEntry from './LogEntry';
 import { ColumnConfig } from './ColumnSettings';
+import { SearchIcon, SortIcon, SortAscIcon, SortDescIcon } from './Icons';
 
 type DisplayMode = 'pagination' | 'infinite-scroll';
-type SortField = 'timestamp' | 'level' | 'source' | 'message';
+type SortField = 'detail' | 'timestamp' | 'level' | 'source' | 'message';
 type SortOrder = 'asc' | 'desc';
 
 interface ColumnWidths {
@@ -34,6 +35,8 @@ interface LogListProps {
   columnWidths?: ColumnWidths;
   onColumnWidthChange?: (column: keyof ColumnWidths, width: number) => void;
   columnConfigs?: ColumnConfig[];
+  selectedEntry?: store.LogEntry | null;
+  onEntryClick?: (entry: store.LogEntry) => void;
 }
 
 export default function LogList({
@@ -55,7 +58,9 @@ export default function LogList({
   sortOrder,
   columnWidths = { timestamp: 160, level: 56, source: 128 },
   onColumnWidthChange,
-  columnConfigs = []
+  columnConfigs = [],
+  selectedEntry,
+  onEntryClick
 }: LogListProps) {
   const [resizingColumn, setResizingColumn] = useState<keyof ColumnWidths | null>(null);
   const startX = useRef(0);
@@ -98,8 +103,8 @@ export default function LogList({
   };
 
   const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) return <span className="text-text-muted">⇅</span>;
-    return sortOrder === 'asc' ? <span className="text-primary">↑</span> : <span className="text-primary">↓</span>;
+    if (sortField !== field) return <SortIcon className="text-text-muted" size={12} />;
+    return sortOrder === 'asc' ? <SortAscIcon className="text-primary" size={12} /> : <SortDescIcon className="text-primary" size={12} />;
   };
 
   const TableHeader = () => {
@@ -108,6 +113,19 @@ export default function LogList({
     return (
       <div className="flex gap-3 items-center bg-bg-header px-2 py-1 border-b border-border sticky top-0 z-10">
         {visibleColumns.map((col) => {
+          if (col.key === 'detail') {
+            return (
+              <div key={col.key} className="w-3 shrink-0 flex justify-center">
+                <button
+                  onClick={() => handleSort('detail')}
+                  className="text-text-muted text-xs font-semibold hover:text-primary"
+                  title="Sort by multiline"
+                >
+                  {renderSortIcon('detail')}
+                </button>
+              </div>
+            );
+          }
           if (col.key === 'message') {
             return (
               <div key={col.key} className="text-text-muted text-xs font-semibold flex-1 text-left">
@@ -146,7 +164,7 @@ export default function LogList({
     if (!entries || entries.length === 0) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-text-muted text-left py-16">
-          <div className="text-6xl mb-4">🔍</div>
+          <SearchIcon className="mb-4" size={64} />
           <p className="text-xl mb-2">No results found</p>
           <p className="text-sm text-text-muted mb-6">Try adjusting your filters or search terms</p>
         </div>
@@ -160,7 +178,16 @@ export default function LogList({
         <TableHeader />
         <div className="flex-1 overflow-y-auto text-left">
           {entries.map((entry) => (
-            <LogEntry key={entry.id} entry={entry} keyword={keyword} onCopy={onCopyEntry} columnWidths={columnWidths} columnConfigs={columnConfigs} />
+            <LogEntry
+              key={entry.id}
+              entry={entry}
+              keyword={keyword}
+              onCopy={onCopyEntry}
+              columnWidths={columnWidths}
+              columnConfigs={columnConfigs}
+              onClick={onEntryClick}
+              isSelected={selectedEntry?.id === entry.id}
+            />
           ))}
         </div>
 
@@ -204,7 +231,16 @@ export default function LogList({
           style={{ height: '100%' }}
           data={entries}
           itemContent={(index, entry) => (
-            <LogEntry key={entry.id} entry={entry} keyword={keyword} onCopy={onCopyEntry} columnWidths={columnWidths} columnConfigs={columnConfigs} />
+            <LogEntry
+              key={entry.id}
+              entry={entry}
+              keyword={keyword}
+              onCopy={onCopyEntry}
+              columnWidths={columnWidths}
+              columnConfigs={columnConfigs}
+              onClick={onEntryClick}
+              isSelected={selectedEntry?.id === entry.id}
+            />
           )}
           endReached={() => {
             if (hasMore && !isLoading) {

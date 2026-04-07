@@ -1,0 +1,1 @@
+java .\LogStorm.java > logStorm.log 2>&1

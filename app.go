@@ -19,18 +19,21 @@ import (
 
 // App struct
 type App struct {
-	ctx   context.Context
-	store *store.Store
+	ctx          context.Context
+	store        *store.Store
+	fileContext  *parser.FileContext
 }
 
 // AppSettings holds application settings
 type AppSettings struct {
-	LastOpenedFile   string `json:"lastOpenedFile"`
-	AutoLoadLastFile bool   `json:"autoLoadLastFile"`
-	Theme            string `json:"theme"`
-	FontSize         int    `json:"fontSize"`
-	DisplayMode      string `json:"displayMode"`
-	ShowResourceUsage bool  `json:"showResourceUsage"`
+	LastOpenedFile       string `json:"lastOpenedFile"`
+	AutoLoadLastFile     bool   `json:"autoLoadLastFile"`
+	Theme                string `json:"theme"`
+	FontSize             int    `json:"fontSize"`
+	DisplayMode          string `json:"displayMode"`
+	ShowResourceUsage    bool   `json:"showResourceUsage"`
+	AutoRefreshEnabled   bool   `json:"autoRefreshEnabled"`
+	AutoRefreshInterval  int    `json:"autoRefreshInterval"` // seconds
 }
 
 // SystemResource holds system resource usage information
@@ -67,14 +70,14 @@ type LoadResult struct {
 
 // LoadFile loads a log file and indexes it
 //wails:export
-func (a *App) LoadFile(path string) (LoadResult, error) {
+func (a *App) LoadFile(path string) LoadResult {
 	// Parse the file
 	entries, err := parser.ParseFile(path)
 	if err != nil {
 		return LoadResult{
 			Success: false,
 			Message: fmt.Sprintf("Parse failed: %v", err),
-		}, err
+		}
 	}
 
 	// Create or recreate store
@@ -87,7 +90,7 @@ func (a *App) LoadFile(path string) (LoadResult, error) {
 		return LoadResult{
 			Success: false,
 			Message: fmt.Sprintf("Store init failed: %v", err),
-		}, err
+		}
 	}
 	a.store = newStore
 
@@ -98,8 +101,22 @@ func (a *App) LoadFile(path string) (LoadResult, error) {
 			return LoadResult{
 				Success: false,
 				Message: fmt.Sprintf("Insert failed: %v", err),
-			}, err
+			}
 		}
+	}
+
+	// Save file context for incremental refresh
+	fileInfo, _ := os.Stat(path)
+	var lastEntry parser.LogEntry
+	if len(entries) > 0 {
+		lastEntry = entries[len(entries)-1]
+	}
+	a.fileContext = &parser.FileContext{
+		Path:      path,
+		LastPos:   fileInfo.Size(),
+		FileSize:  fileInfo.Size(),
+		ModTime:   fileInfo.ModTime(),
+		LastEntry: lastEntry,
 	}
 
 	// Save to settings
@@ -111,7 +128,7 @@ func (a *App) LoadFile(path string) (LoadResult, error) {
 		Success: true,
 		Message: fmt.Sprintf("Loaded %d entries", len(entries)),
 		Count:   len(entries),
-	}, nil
+	}
 }
 
 // SearchQuery represents search parameters (must match frontend type)
@@ -123,6 +140,8 @@ type SearchQuery struct {
 	EndTime   string `json:"endTime"`
 	Page      int    `json:"page"`
 	PageSize  int    `json:"pageSize"`
+	SortField string `json:"sortField"`
+	SortOrder string `json:"sortOrder"`
 }
 
 // SearchResult represents search results
@@ -151,6 +170,8 @@ func (a *App) SearchLogs(query SearchQuery) (SearchResult, error) {
 		EndTime:   query.EndTime,
 		Page:      query.Page,
 		PageSize:  query.PageSize,
+		SortField: query.SortField,
+		SortOrder: query.SortOrder,
 	}
 
 	result, err := a.store.Search(q)
@@ -325,6 +346,119 @@ func (a *App) getSettingsPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(configDir, "analyze-log", "settings.json"), nil
+}
+
+// RefreshResult represents the result of refreshing logs
+type RefreshResult struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	NewCount   int    `json:"newCount"`
+	TotalCount int    `json:"totalCount"`
+}
+
+// RefreshLogs refreshes the log file and loads newly appended entries
+//wails:export
+func (a *App) RefreshLogs() RefreshResult {
+	if a.store == nil {
+		return RefreshResult{
+			Success: false,
+			Message: "No file loaded",
+		}
+	}
+
+	if a.fileContext == nil {
+		return RefreshResult{
+			Success: false,
+			Message: "No file context available. Please load a file first.",
+		}
+	}
+
+	// Parse incremental entries
+	newEntries, newCtx, err := parser.ParseFileIncremental(*a.fileContext)
+	if err != nil {
+		return RefreshResult{
+			Success: false,
+			Message: fmt.Sprintf("Refresh failed: %v", err),
+		}
+	}
+
+	// Check if file was truncated (need full reload)
+	if newCtx.LastPos < a.fileContext.LastPos {
+		// Clear and reload
+		a.store.Close()
+		newStore, err := store.NewStore()
+		if err != nil {
+			return RefreshResult{
+				Success: false,
+				Message: fmt.Sprintf("Store init failed: %v", err),
+			}
+		}
+		a.store = newStore
+
+		// Re-parse entire file
+		entries, err := parser.ParseFile(a.fileContext.Path)
+		if err != nil {
+			return RefreshResult{
+				Success: false,
+				Message: fmt.Sprintf("Parse failed: %v", err),
+			}
+		}
+
+		for _, entry := range entries {
+			_, err := a.store.Insert(entry.Timestamp, entry.Level, entry.Source, entry.Class, entry.Message)
+			if err != nil {
+				return RefreshResult{
+					Success: false,
+					Message: fmt.Sprintf("Insert failed: %v", err),
+				}
+			}
+		}
+		a.fileContext = &newCtx
+
+		return RefreshResult{
+			Success:    true,
+			Message:    fmt.Sprintf("File was truncated. Reloaded %d entries", len(entries)),
+			NewCount:   len(entries),
+			TotalCount: len(entries),
+		}
+	}
+
+	// Insert new entries
+	for _, entry := range newEntries {
+		_, err := a.store.Insert(entry.Timestamp, entry.Level, entry.Source, entry.Class, entry.Message)
+		if err != nil {
+			return RefreshResult{
+				Success: false,
+				Message: fmt.Sprintf("Insert failed: %v", err),
+			}
+		}
+	}
+
+	// Update file context
+	a.fileContext = &newCtx
+
+	// Get total count
+	stats, err := a.store.GetStats()
+	totalCount := 0
+	if err == nil {
+		totalCount = stats.Total
+	}
+
+	if len(newEntries) == 0 {
+		return RefreshResult{
+			Success:    true,
+			Message:    "No new entries",
+			NewCount:   0,
+			TotalCount: totalCount,
+		}
+	}
+
+	return RefreshResult{
+		Success:    true,
+		Message:    fmt.Sprintf("Loaded %d new entries", len(newEntries)),
+		NewCount:   len(newEntries),
+		TotalCount: totalCount,
+	}
 }
 
 // GetSystemResource returns current system resource usage

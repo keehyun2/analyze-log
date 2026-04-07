@@ -139,20 +139,22 @@ func (s *Store) Clear() error {
 
 // SearchQuery represents search parameters
 type SearchQuery struct {
-	Keyword   string
-	Level     string // empty = all
-	Class     string
-	StartTime string
-	EndTime   string
-	Page      int
-	PageSize  int
+	Keyword   string `json:"keyword"`
+	Level     string `json:"level"`     // empty = all
+	Class     string `json:"class"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	Page      int    `json:"page"`
+	PageSize  int    `json:"pageSize"`
+	SortField string `json:"sortField"` // "detail", "timestamp", "level", "source", "message"
+	SortOrder string `json:"sortOrder"` // "asc" or "desc"
 }
 
 // SearchResult represents search results
 type SearchResult struct {
-	Entries []LogEntry
-	Total   int
-	Page    int
+	Entries []LogEntry `json:"entries"`
+	Total   int        `json:"total"`
+	Page    int        `json:"page"`
 }
 
 // LogEntry represents a log entry from the database
@@ -282,7 +284,42 @@ func (s *Store) Search(q SearchQuery) (*SearchResult, error) {
 	fmt.Printf("[Store] Total count: %d\n", total)
 
 	// Add ordering and pagination
-	query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+	// Default to timestamp DESC if not specified
+	sortField := q.SortField
+	if sortField == "" {
+		sortField = "timestamp"
+	}
+	sortOrder := strings.ToUpper(q.SortOrder)
+	if sortOrder != "ASC" && sortOrder != "DESC" {
+		sortOrder = "DESC"
+	}
+
+	// Build ORDER BY clause
+	var orderByClause string
+	switch sortField {
+	case "detail":
+		// Sort by multiline status (multiline first for ASC)
+		// Use INSTR which returns > 0 if substring is found
+		orderByClause = fmt.Sprintf("CASE WHEN INSTR(message, CHAR(10)) > 0 THEN 0 ELSE 1 END %s, timestamp DESC", sortOrder)
+	case "timestamp":
+		orderByClause = fmt.Sprintf("timestamp %s", sortOrder)
+	case "level":
+		// Order by level severity: ERROR > WARN > INFO > DEBUG > TRACE
+		levelOrder := "CASE level "
+		for i, lvl := range []string{"ERROR", "WARN", "INFO", "DEBUG", "TRACE"} {
+			levelOrder += fmt.Sprintf("WHEN '%s' THEN %d ", lvl, i)
+		}
+		levelOrder += "ELSE 999 END"
+		orderByClause = fmt.Sprintf("%s %s, timestamp DESC", levelOrder, sortOrder)
+	case "source":
+		orderByClause = fmt.Sprintf("source %s, timestamp DESC", sortOrder)
+	case "message":
+		orderByClause = fmt.Sprintf("message %s, timestamp DESC", sortOrder)
+	default:
+		orderByClause = "timestamp DESC"
+	}
+
+	query += " ORDER BY " + orderByClause + " LIMIT ? OFFSET ?"
 	args = append(args, q.PageSize, offset)
 
 	// Execute query
@@ -392,8 +429,8 @@ func (s *Store) GetStats() (*Stats, error) {
 
 // DateRange holds min and max timestamps
 type DateRange struct {
-	Min string
-	Max string
+	Min string `json:"min"`
+	Max string `json:"max"`
 }
 
 // GetDateRange returns the minimum and maximum timestamps from log entries
@@ -419,6 +456,29 @@ func (s *Store) GetDateRange() (*DateRange, error) {
 		Min: min,
 		Max: max,
 	}, nil
+}
+
+// GetLastEntry returns the last log entry in the database
+func (s *Store) GetLastEntry() (*LogEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var e LogEntry
+	err := s.db.QueryRow(`
+		SELECT id, timestamp, level, source, class, message
+		FROM log_entries
+		ORDER BY id DESC
+		LIMIT 1
+	`).Scan(&e.ID, &e.Timestamp, &e.Level, &e.Source, &e.Class, &e.Message)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // No entries yet
+		}
+		return nil, fmt.Errorf("store: get last entry failed: %w", err)
+	}
+
+	return &e, nil
 }
 
 // Close closes the database connection and removes the temp file

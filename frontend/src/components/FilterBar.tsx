@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { main } from '../../wailsjs/go/models';
 import SearchHistoryDropdown from './SearchHistoryDropdown';
 import DatePicker from './DatePicker';
+import { CalendarIcon, CloseIcon } from './Icons';
 
 interface FilterBarProps {
   levels: string[];
@@ -458,7 +459,7 @@ export default function FilterBar({
               className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
               title="Open date picker"
             >
-              📅
+              <CalendarIcon size={14} />
             </button>
             {startTimePickerOpen && (
               <DatePicker
@@ -491,7 +492,7 @@ export default function FilterBar({
               className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
               title="Open date picker"
             >
-              📅
+              <CalendarIcon size={14} />
             </button>
             {endTimePickerOpen && (
               <DatePicker
@@ -513,7 +514,7 @@ export default function FilterBar({
               className="px-1.5 py-0.5 text-level-error hover:text-level-error text-xs"
               title="Clear time filters"
             >
-              ✕
+              <CloseIcon size={12} />
             </button>
           )}
         </div>

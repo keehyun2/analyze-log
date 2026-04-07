@@ -24,7 +24,12 @@
       "Bash(git commit -m 'ci: Add GitHub Actions workflow for cross-platform builds:*)",
       "Bash(git push:*)",
       "Bash(git commit -m 'ci: Windows-only build with Slack notifications:*)",
-      "Bash(gh secret:*)"
+      "Bash(gh secret:*)",
+      "Bash(gh run:*)",
+      "Bash(git tag:*)",
+      "Bash(go mod:*)",
+      "Bash(taskkill /F /IM \"analyze-log.exe\")",
+      "Bash(taskkill /F /IM node.exe)"
     ]
   }
 }

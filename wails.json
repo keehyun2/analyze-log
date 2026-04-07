@@ -14,5 +14,6 @@
   "windows": {
     "resizable": true,
     "alwaysOnTop": false
-  }
+  },
+  "icon": "build/appicon.png"
 }

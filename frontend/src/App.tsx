@@ -1,22 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './index.css';
-import { LoadFile, SearchLogs, GetStats, GetSettings, SetSettings, GetDateRange } from '../wailsjs/go/main/App';
+import { LoadFile, SearchLogs, GetStats, GetSettings, SetSettings, GetDateRange, RefreshLogs } from '../wailsjs/go/main/App';
 import { main, store } from '../wailsjs/go/models';
 import FileDropZone from './components/FileDropZone';
 import FilterBar from './components/FilterBar';
 import LogList from './components/LogList';
+import LogDetail from './components/LogDetail';
 import SettingsPanel from './components/SettingsPanel';
 import ColumnSettings, { ColumnConfig, getDefaultColumns } from './components/ColumnSettings';
 import ResourceMonitor from './components/ResourceMonitor';
 import ToastContainer, { Toast } from './components/Toast';
 import { useSearchHistory } from './hooks/useSearchHistory';
+import { FolderOpenIcon, RefreshIcon, ColumnIcon, SettingsIcon } from './components/Icons';
 
 const LOG_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'];
 const DEFAULT_PAGE_SIZE = 100;
 
 type Theme = 'dark' | 'darker' | 'midnight' | 'light';
 type DisplayMode = 'pagination' | 'infinite-scroll';
-type SortField = 'timestamp' | 'level' | 'source' | 'message';
+type SortField = 'detail' | 'timestamp' | 'level' | 'source' | 'message';
 type SortOrder = 'asc' | 'desc';
 
 interface ColumnWidths {
@@ -38,6 +40,7 @@ function App() {
   const [stats, setStats] = useState<main.Stats | null>(null);
   const [entries, setEntries] = useState<store.LogEntry[]>([]);
   const [total, setTotal] = useState(0);
+  const [selectedEntry, setSelectedEntry] = useState<store.LogEntry | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -58,6 +61,8 @@ function App() {
   const [autoLoadLastFile, setAutoLoadLastFile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showResourceUsage, setShowResourceUsage] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(60); // seconds
 
   // Column widths (stored in localStorage)
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => {
@@ -72,11 +77,26 @@ function App() {
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>(() => {
     const saved = localStorage.getItem('columnConfigs');
     if (saved) {
-      return JSON.parse(saved);
+      const configs = JSON.parse(saved) as ColumnConfig[];
+      // Migration: add 'detail' column if missing
+      if (!configs.some(c => c.key === 'detail')) {
+        return [{ key: 'detail', label: 'Detail', visible: true }, ...configs];
+      }
+      return configs;
     }
     return getDefaultColumns();
   });
   const [showColumnSettings, setShowColumnSettings] = useState(false);
+
+  // Panel split width (stored in localStorage)
+  const [panelSplitWidth, setPanelSplitWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('panelSplitWidth');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return 50; // Default 50%
+  });
+  const [isResizing, setIsResizing] = useState(false);
 
   // Toast
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -104,6 +124,8 @@ function App() {
         if (settings.fontSize) setFontSize(settings.fontSize);
         if (settings.displayMode) setDisplayMode(settings.displayMode as DisplayMode);
         if (settings.showResourceUsage) setShowResourceUsage(settings.showResourceUsage);
+        if (settings.autoRefreshEnabled !== undefined) setAutoRefreshEnabled(settings.autoRefreshEnabled);
+        if (settings.autoRefreshInterval) setAutoRefreshInterval(settings.autoRefreshInterval);
 
         // Auto-load last file if enabled
         if (settings.autoLoadLastFile && settings.lastOpenedFile) {
@@ -190,16 +212,29 @@ function App() {
         clearFilters();
       }
 
-      // Escape: Close settings
-      if (e.key === 'Escape' && showSettings) {
+      // F5: Refresh logs
+      if (e.key === 'F5') {
         e.preventDefault();
-        setShowSettings(false);
+        if (isLoaded) {
+          handleRefresh();
+        }
+      }
+
+      // Escape: Close settings or detail panel
+      if (e.key === 'Escape') {
+        if (showSettings) {
+          e.preventDefault();
+          setShowSettings(false);
+        } else if (selectedEntry) {
+          e.preventDefault();
+          setSelectedEntry(null);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoaded, showSettings, keyword]);
+  }, [isLoaded, showSettings, selectedEntry, keyword]);
 
   // Clear all filters
   const clearFilters = useCallback(() => {
@@ -273,6 +308,45 @@ function App() {
     }
   };
 
+  const handleRefresh = async () => {
+    if (!isLoaded) return;
+
+    setIsLoading(true);
+    try {
+      const result = await RefreshLogs();
+      if (result.success) {
+        if (result.newCount > 0) {
+          showToast(`Loaded ${result.newCount} new entries`, 'success');
+          // Refresh stats and search
+          const statsResult = await GetStats();
+          setStats(statsResult);
+          // Reload current search
+          await handleSearch(currentPage);
+        } else {
+          showToast('No new entries', 'info');
+        }
+      } else {
+        showToast(result.message, 'error');
+      }
+    } catch (error) {
+      console.error('[App] Refresh error:', error);
+      showToast('Refresh failed', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Auto refresh timer
+  useEffect(() => {
+    if (!autoRefreshEnabled || !isLoaded) return;
+
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, autoRefreshInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled, autoRefreshInterval, isLoaded]);
+
   const handleSearch = async (searchPage: number = 1, overrideLevel?: string, overrideStart?: string, overrideEnd?: string) => {
     const actualStart = overrideStart !== undefined ? overrideStart : startTime;
     const actualEnd = overrideEnd !== undefined ? overrideEnd : endTime;
@@ -306,6 +380,8 @@ function App() {
         endTime: overrideEnd !== undefined ? overrideEnd : endTime,
         page: searchPage,
         pageSize: DEFAULT_PAGE_SIZE,
+        sortField: sortField,
+        sortOrder: sortOrder,
       };
 
       const result = await SearchLogs(query);
@@ -371,6 +447,16 @@ function App() {
     await saveSettings({ showResourceUsage: value });
   };
 
+  const handleAutoRefreshEnabledChange = async (value: boolean) => {
+    setAutoRefreshEnabled(value);
+    await saveSettings({ autoRefreshEnabled: value });
+  };
+
+  const handleAutoRefreshIntervalChange = async (value: number) => {
+    setAutoRefreshInterval(value);
+    await saveSettings({ autoRefreshInterval: value });
+  };
+
   const saveSettings = async (updates: Partial<main.AppSettings>) => {
     try {
       const current = await GetSettings();
@@ -381,6 +467,8 @@ function App() {
         fontSize: updates.fontSize ?? current.fontSize ?? 14,
         displayMode: updates.displayMode ?? current.displayMode ?? 'infinite-scroll',
         showResourceUsage: updates.showResourceUsage ?? current.showResourceUsage ?? false,
+        autoRefreshEnabled: updates.autoRefreshEnabled ?? current.autoRefreshEnabled ?? false,
+        autoRefreshInterval: updates.autoRefreshInterval ?? current.autoRefreshInterval ?? 60,
         ...updates,
       });
     } catch (error) {
@@ -404,40 +492,9 @@ function App() {
     setSortField(field);
     setSortOrder(order);
 
-    // Sort entries client-side
-    setEntries((prev) => {
-      const sorted = [...prev].sort((a, b) => {
-        let aVal: string | number;
-        let bVal: string | number;
-
-        switch (field) {
-          case 'timestamp':
-            aVal = a.timestamp;
-            bVal = b.timestamp;
-            break;
-          case 'level':
-            aVal = a.level;
-            bVal = b.level;
-            break;
-          case 'source':
-            aVal = a.source;
-            bVal = b.source;
-            break;
-          case 'message':
-            aVal = a.message;
-            bVal = b.message;
-            break;
-          default:
-            return 0;
-        }
-
-        if (aVal < bVal) return order === 'asc' ? -1 : 1;
-        if (aVal > bVal) return order === 'asc' ? 1 : -1;
-        return 0;
-      });
-      return sorted;
-    });
-  }, []);
+    // Trigger new search with server-side sorting
+    handleSearch(1);
+  }, [handleSearch]);
 
   const handleColumnWidthChange = useCallback((column: keyof ColumnWidths, width: number) => {
     setColumnWidths((prev) => {
@@ -450,6 +507,54 @@ function App() {
   const handleColumnConfigsChange = useCallback((configs: ColumnConfig[]) => {
     setColumnConfigs(configs);
     localStorage.setItem('columnConfigs', JSON.stringify(configs));
+  }, []);
+
+  // Panel resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const container = document.querySelector('.split-container');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+      const clampedWidth = Math.max(20, Math.min(80, newWidth)); // 20%-80%
+      setPanelSplitWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        setIsResizing(false);
+        localStorage.setItem('panelSplitWidth', JSON.stringify(panelSplitWidth));
+      }
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, panelSplitWidth]);
+
+  const handleEntryClick = useCallback((entry: store.LogEntry) => {
+    // Only show detail panel for entries with multi-line messages (stack traces)
+    const hasMultiLine = entry.message.includes('\n');
+    if (hasMultiLine) {
+      setSelectedEntry(entry);
+    } else {
+      setSelectedEntry(null);
+    }
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedEntry(null);
   }, []);
 
   const handleLevelClick = useCallback((level: string) => {
@@ -514,10 +619,18 @@ function App() {
             <div className="flex gap-2 items-center">
               <button
                 onClick={handleOpenFileDialog}
-                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors"
+                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors flex items-center gap-1"
                 title="Open another file (Ctrl+O)"
               >
-                📁 Open
+                <FolderOpenIcon size={14} /> Open
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="px-2 py-0.5 text-xs bg-primary rounded hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                title="Refresh logs (F5)"
+              >
+                <RefreshIcon size={14} /> Refresh
               </button>
             </div>
             <div className="flex gap-3 items-center">
@@ -525,16 +638,16 @@ function App() {
               <div className="flex gap-2 items-center relative">
                 <button
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
-                  className="px-2 py-0.5 text-xs bg-border rounded hover:bg-primary transition-colors"
+                  className="p-1 text-xs bg-border rounded hover:bg-primary transition-colors"
                   title="Column settings"
                 >
-                  🔲
+                  <ColumnIcon size={14} />
                 </button>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="px-2 py-0.5 text-xs bg-border rounded hover:bg-primary transition-colors"
+                  className="p-1 text-xs bg-border rounded hover:bg-primary transition-colors"
                 >
-                  ⚙️
+                  <SettingsIcon size={14} />
                 </button>
                 {showColumnSettings && (
                   <ColumnSettings
@@ -559,6 +672,10 @@ function App() {
               onAutoLoadToggle={handleAutoLoadToggle}
               showResourceUsage={showResourceUsage}
               onShowResourceToggle={handleShowResourceToggle}
+              autoRefreshEnabled={autoRefreshEnabled}
+              onAutoRefreshEnabledChange={handleAutoRefreshEnabledChange}
+              autoRefreshInterval={autoRefreshInterval}
+              onAutoRefreshIntervalChange={handleAutoRefreshIntervalChange}
               onClose={() => setShowSettings(false)}
             />
           )}
@@ -592,26 +709,47 @@ function App() {
             onClearClassNameHistory={() => clearHistory('classNames')}
           />
 
-          <LogList
-            entries={entries}
-            total={total}
-            loaded={entries.length}
-            hasMore={hasMore}
-            onLoadMore={handleLoadMore}
-            page={currentPage}
-            onPageChange={handlePageChange}
-            pageSize={DEFAULT_PAGE_SIZE}
-            isLoading={isLoading}
-            displayMode={displayMode}
-            keyword={keyword}
-            onCopyEntry={handleCopyEntry}
-            onSort={handleSort}
-            sortField={sortField}
-            sortOrder={sortOrder}
-            columnWidths={columnWidths}
-            onColumnWidthChange={handleColumnWidthChange}
-            columnConfigs={columnConfigs}
-          />
+          <div className="flex-1 flex overflow-hidden split-container">
+            <div className="flex-none flex flex-col" style={{ width: selectedEntry ? `${panelSplitWidth}%` : '100%', minWidth: '300px' }}>
+              <LogList
+                entries={entries}
+                total={total}
+                loaded={entries.length}
+                hasMore={hasMore}
+                onLoadMore={handleLoadMore}
+                page={currentPage}
+                onPageChange={handlePageChange}
+                pageSize={DEFAULT_PAGE_SIZE}
+                isLoading={isLoading}
+                displayMode={displayMode}
+                keyword={keyword}
+                onCopyEntry={handleCopyEntry}
+                onSort={handleSort}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                columnWidths={columnWidths}
+                onColumnWidthChange={handleColumnWidthChange}
+                columnConfigs={columnConfigs}
+                selectedEntry={selectedEntry}
+                onEntryClick={handleEntryClick}
+              />
+            </div>
+            {selectedEntry && (
+              <>
+                <div
+                  className={`relative flex items-center justify-center ${isResizing ? 'bg-primary' : ''}`}
+                  style={{ width: '12px' }}
+                  onMouseDown={handleResizeStart}
+                  title="Drag to resize"
+                >
+                  <div className="w-2 h-full bg-border hover:bg-primary transition-colors" />
+                </div>
+                <div className="flex-none flex flex-col border-l border-border" style={{ width: `${100 - panelSplitWidth}%`, minWidth: '300px' }}>
+                  <LogDetail entry={selectedEntry} keyword={keyword} onClose={handleCloseDetail} />
+                </div>
+              </>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { store } from '../../wailsjs/go/models';
 import { ColumnConfig } from './ColumnSettings';
+import { ChevronRightIcon, ClipboardIcon, CheckIcon } from './Icons';
 
 interface ColumnWidths {
   timestamp: number;
@@ -14,6 +15,8 @@ interface LogEntryProps {
   onCopy?: () => void;
   columnWidths?: ColumnWidths;
   columnConfigs?: ColumnConfig[];
+  onClick?: (entry: store.LogEntry) => void;
+  isSelected?: boolean;
 }
 
 const levelBorderColors: Record<string, string> = {
@@ -32,10 +35,9 @@ const levelBgColors: Record<string, string> = {
   error: 'bg-level-error/20 text-level-error',
 };
 
-export default function LogEntry({ entry, keyword, onCopy, columnWidths = { timestamp: 160, level: 56, source: 128 }, columnConfigs = [] }: LogEntryProps) {
-  const [expanded, setExpanded] = useState(false);
+export default function LogEntry({ entry, keyword, onCopy, columnWidths = { timestamp: 160, level: 56, source: 128 }, columnConfigs = [], onClick, isSelected = false }: LogEntryProps) {
   const [copied, setCopied] = useState(false);
-  const hasStackTrace = entry.message.includes('\n');
+  const hasMultiLine = entry.message.includes('\n');
 
   const formatTimestamp = (ts: string) => {
     return ts.replace('T', ' ');
@@ -43,7 +45,8 @@ export default function LogEntry({ entry, keyword, onCopy, columnWidths = { time
 
   const levelLower = entry.level.toLowerCase();
 
-  const handleCopy = () => {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const text = `[${entry.timestamp}] [${entry.level}] ${entry.source}\n${entry.message}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -66,17 +69,23 @@ export default function LogEntry({ entry, keyword, onCopy, columnWidths = { time
     });
   };
 
-  const formatMessage = (message: string) => {
-    return message.split('\n').map((line, i) => (
-      <div key={i} className="leading-relaxed">
-        {line || '\u00A0'}
-      </div>
-    ));
-  };
-
   // Render column based on config
   const renderColumn = (colKey: string) => {
     switch (colKey) {
+      case 'detail':
+        return (
+          <div className="w-3 shrink-0 flex justify-center">
+            {hasMultiLine ? (
+              <button
+                onClick={() => onClick?.(entry)}
+                className="rounded text-text-muted hover:text-primary"
+                title="Click to view detail"
+              >
+                <ChevronRightIcon size={12} />
+              </button>
+            ) : null}
+          </div>
+        );
       case 'timestamp':
         return (
           <span className="text-text-muted font-mono text-xs shrink-0" style={{ width: columnWidths.timestamp }}>
@@ -97,7 +106,7 @@ export default function LogEntry({ entry, keyword, onCopy, columnWidths = { time
         );
       case 'message':
         return (
-          <div className={`flex-1 text-text-main font-mono text-xs truncate ${expanded ? '' : 'max-h-5 overflow-hidden'}`}>
+          <div className="flex-1 text-text-main font-mono text-xs truncate">
             {keyword ? highlightKeyword(entry.message.split('\n')[0]) : entry.message.split('\n')[0]}
           </div>
         );
@@ -109,7 +118,10 @@ export default function LogEntry({ entry, keyword, onCopy, columnWidths = { time
   const visibleColumns = columnConfigs.filter(c => c.visible);
 
   return (
-    <div className={`border-l-3 border-b border-border py-1 px-2 ${levelBorderColors[levelLower]} animate-fade-in group`}>
+    <div
+      className={`border-l-3 border-b border-border py-1 px-2 ${levelBorderColors[levelLower]} animate-fade-in group ${hasMultiLine ? 'cursor-pointer' : ''} ${isSelected ? 'bg-primary/30' : 'hover:bg-bg-header'}`}
+      onClick={() => hasMultiLine && onClick?.(entry)}
+    >
       <div className="flex gap-3 items-center">
         {visibleColumns.map((col) => (
           <React.Fragment key={col.key}>
@@ -118,29 +130,16 @@ export default function LogEntry({ entry, keyword, onCopy, columnWidths = { time
         ))}
         <button
           onClick={handleCopy}
-          className={`px-2 py-1 text-xs rounded transition-colors shrink-0 ${
+          className={`px-2 py-1 text-xs rounded transition-colors shrink-0 flex items-center ${
             copied
               ? 'bg-green-600 text-white'
               : 'bg-border text-text-muted hover:bg-primary hover:text-white opacity-0 group-hover:opacity-100'
           }`}
           title="Copy to clipboard"
         >
-          {copied ? '✓' : '📋'}
+          {copied ? <CheckIcon size={12} /> : <ClipboardIcon size={12} />}
         </button>
-        {hasStackTrace && (
-          <span
-            className="text-text-muted cursor-pointer select-none hover:text-text-main shrink-0"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? '▼' : '▶'}
-          </span>
-        )}
       </div>
-      {expanded && hasStackTrace && (
-        <div className="text-text-main font-mono text-xs whitespace-pre-wrap break-all mt-1" style={{ paddingLeft: `calc(${columnWidths.timestamp}px + ${columnWidths.level}px + ${columnWidths.source}px + 1rem + 1rem)` }}>
-          {keyword ? highlightKeyword(entry.message) : formatMessage(entry.message)}
-        </div>
-      )}
     </div>
   );
 }

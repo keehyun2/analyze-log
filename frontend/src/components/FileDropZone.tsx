@@ -1,4 +1,5 @@
 import { OpenFileDialog } from '../../wailsjs/go/main/App';
+import { FileTextIcon, AlertTriangleIcon } from './Icons';
 
 interface FileDropZoneProps {
   onFileLoad: (path: string) => void;
@@ -26,7 +27,7 @@ export default function FileDropZone({ onFileLoad, isLoading, errorMessage, onOp
           <div className="text-2xl text-primary">Loading...</div>
         ) : (
           <>
-            <div className="text-6xl mb-4">📄</div>
+            <FileTextIcon className="mb-4" size={64} />
             <p className="text-xl my-2 text-text-main">Select a log file to analyze</p>
             <button
               className="mt-4 px-8 py-3 bg-primary text-white rounded cursor-pointer transition-colors duration-300 text-base hover:bg-primary-hover"
@@ -42,9 +43,12 @@ export default function FileDropZone({ onFileLoad, isLoading, errorMessage, onOp
       </div>
 
       {errorMessage && !isLoading && (
-        <div className="mx-8 mb-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200">
-          <p className="font-semibold mb-1">⚠️ Error</p>
-          <p className="text-sm">{errorMessage}</p>
+        <div className="mx-8 mb-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-200 flex items-start gap-2">
+          <AlertTriangleIcon size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold mb-1">Error</p>
+            <p className="text-sm">{errorMessage}</p>
+          </div>
         </div>
       )}
     </div>

@@ -34,6 +34,10 @@ export function OpenFileDialog() {
   return window['go']['main']['App']['OpenFileDialog']();
 }
 
+export function RefreshLogs() {
+  return window['go']['main']['App']['RefreshLogs']();
+}
+
 export function SaveLastFile(arg1) {
   return window['go']['main']['App']['SaveLastFile'](arg1);
 }

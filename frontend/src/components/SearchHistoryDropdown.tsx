@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { CloseIcon } from './Icons';
 
 interface SearchHistoryDropdownProps {
   items: string[];
@@ -108,7 +109,7 @@ export default function SearchHistoryDropdown({
               className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-level-error transition-all px-1"
               title="Remove from history"
             >
-              ✕
+              <CloseIcon size={12} />
             </button>
           </div>
         ))}

@@ -7,6 +7,8 @@ export namespace main {
 	    fontSize: number;
 	    displayMode: string;
 	    showResourceUsage: boolean;
+	    autoRefreshEnabled: boolean;
+	    autoRefreshInterval: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -20,6 +22,8 @@ export namespace main {
 	        this.fontSize = source["fontSize"];
 	        this.displayMode = source["displayMode"];
 	        this.showResourceUsage = source["showResourceUsage"];
+	        this.autoRefreshEnabled = source["autoRefreshEnabled"];
+	        this.autoRefreshInterval = source["autoRefreshInterval"];
 	    }
 	}
 	export class DateRange {
@@ -52,6 +56,24 @@ export namespace main {
 	        this.count = source["count"];
 	    }
 	}
+	export class RefreshResult {
+	    success: boolean;
+	    message: string;
+	    newCount: number;
+	    totalCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RefreshResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	        this.newCount = source["newCount"];
+	        this.totalCount = source["totalCount"];
+	    }
+	}
 	export class SearchQuery {
 	    keyword: string;
 	    level: string;
@@ -60,6 +82,8 @@ export namespace main {
 	    endTime: string;
 	    page: number;
 	    pageSize: number;
+	    sortField: string;
+	    sortOrder: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SearchQuery(source);
@@ -74,6 +98,8 @@ export namespace main {
 	        this.endTime = source["endTime"];
 	        this.page = source["page"];
 	        this.pageSize = source["pageSize"];
+	        this.sortField = source["sortField"];
+	        this.sortOrder = source["sortOrder"];
 	    }
 	}
 	export class SearchResult {
