@@ -90,7 +90,7 @@ type SearchResult struct {
 ## UI 기능 목록
 
 ### 필수 구현
-- [ ] 파일 드래그앤드롭 + 파일 선택 버튼
+- [x] 파일 선택 버튼
 - [ ] 로드 진행률 표시
 - [ ] 레벨 필터 (TRACE/DEBUG/INFO/WARN/ERROR 체크박스)
 - [ ] 키워드 검색 (FTS5)

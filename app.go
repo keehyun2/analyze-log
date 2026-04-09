@@ -15,6 +15,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"regexp"
 )
 
 // App struct
@@ -26,14 +27,15 @@ type App struct {
 
 // AppSettings holds application settings
 type AppSettings struct {
-	LastOpenedFile       string `json:"lastOpenedFile"`
-	AutoLoadLastFile     bool   `json:"autoLoadLastFile"`
-	Theme                string `json:"theme"`
-	FontSize             int    `json:"fontSize"`
-	DisplayMode          string `json:"displayMode"`
-	ShowResourceUsage    bool   `json:"showResourceUsage"`
-	AutoRefreshEnabled   bool   `json:"autoRefreshEnabled"`
-	AutoRefreshInterval  int    `json:"autoRefreshInterval"` // seconds
+	LastOpenedFile       string                  `json:"lastOpenedFile"`
+	AutoLoadLastFile     bool                    `json:"autoLoadLastFile"`
+	Theme                string                  `json:"theme"`
+	FontSize             int                     `json:"fontSize"`
+	DisplayMode          string                  `json:"displayMode"`
+	ShowResourceUsage    bool                    `json:"showResourceUsage"`
+	AutoRefreshEnabled   bool                    `json:"autoRefreshEnabled"`
+	AutoRefreshInterval  int                     `json:"autoRefreshInterval"` // seconds
+	CustomFormats        []parser.CustomFormat   `json:"customFormats"`       // User-defined log formats
 }
 
 // SystemResource holds system resource usage information
@@ -71,8 +73,20 @@ type LoadResult struct {
 // LoadFile loads a log file and indexes it
 //wails:export
 func (a *App) LoadFile(path string) LoadResult {
+	// Load custom patterns from settings
+	settings, _ := a.GetSettings()
+	var customPatterns []*regexp.Regexp
+	if len(settings.CustomFormats) > 0 {
+		patterns, err := parser.LoadCustomPatterns(settings.CustomFormats)
+		if err != nil {
+			fmt.Printf("[App] Failed to load custom patterns: %v\n", err)
+		} else {
+			customPatterns = patterns
+		}
+	}
+
 	// Parse the file
-	entries, err := parser.ParseFile(path)
+	entries, err := parser.ParseFile(path, customPatterns)
 	if err != nil {
 		return LoadResult{
 			Success: false,
@@ -373,8 +387,20 @@ func (a *App) RefreshLogs() RefreshResult {
 		}
 	}
 
+	// Load custom patterns from settings
+	settings, _ := a.GetSettings()
+	var customPatterns []*regexp.Regexp
+	if len(settings.CustomFormats) > 0 {
+		patterns, err := parser.LoadCustomPatterns(settings.CustomFormats)
+		if err != nil {
+			fmt.Printf("[App] Failed to load custom patterns: %v\n", err)
+		} else {
+			customPatterns = patterns
+		}
+	}
+
 	// Parse incremental entries
-	newEntries, newCtx, err := parser.ParseFileIncremental(*a.fileContext)
+	newEntries, newCtx, err := parser.ParseFileIncremental(*a.fileContext, customPatterns)
 	if err != nil {
 		return RefreshResult{
 			Success: false,
@@ -396,7 +422,7 @@ func (a *App) RefreshLogs() RefreshResult {
 		a.store = newStore
 
 		// Re-parse entire file
-		entries, err := parser.ParseFile(a.fileContext.Path)
+		entries, err := parser.ParseFile(a.fileContext.Path, customPatterns)
 		if err != nil {
 			return RefreshResult{
 				Success: false,
@@ -503,4 +529,120 @@ func (a *App) GetSystemResource() (SystemResource, error) {
 		MemoryUsage: (processMem / float64(vmStat.Total)) * 100 * 1024 * 1024, // Percentage
 		MemoryMB:    processMem,
 	}, nil
+}
+
+// TestFormatResult represents the result of testing a custom format
+type TestFormatResult struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error"`
+	Entry   parser.LogEntry `json:"entry,omitempty"`
+}
+
+// GetCustomFormats returns the list of custom formats
+//wails:export
+func (a *App) GetCustomFormats() ([]parser.CustomFormat, error) {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return []parser.CustomFormat{}, err
+	}
+	return settings.CustomFormats, nil
+}
+
+// AddCustomFormat adds a new custom format
+//wails:export
+func (a *App) AddCustomFormat(format parser.CustomFormat) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+
+	// Generate ID if not provided
+	if format.ID == "" {
+		format = parser.NewCustomFormat(format.Name, format.Pattern, format.Description, format.Enabled)
+	}
+
+	settings.CustomFormats = append(settings.CustomFormats, format)
+	return a.SetSettings(settings)
+}
+
+// UpdateCustomFormat updates an existing custom format
+//wails:export
+func (a *App) UpdateCustomFormat(id string, updated parser.CustomFormat) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+
+	for i, format := range settings.CustomFormats {
+		if format.ID == id {
+			// Preserve ID and creation time
+			updated.ID = id
+			updated.CreatedAt = format.CreatedAt
+			settings.CustomFormats[i] = updated
+			return a.SetSettings(settings)
+		}
+	}
+
+	return fmt.Errorf("custom format with id '%s' not found", id)
+}
+
+// DeleteCustomFormat deletes a custom format by ID
+//wails:export
+func (a *App) DeleteCustomFormat(id string) error {
+	settings, err := a.GetSettings()
+	if err != nil {
+		return err
+	}
+
+	for i, format := range settings.CustomFormats {
+		if format.ID == id {
+			// Delete by removing from slice
+			settings.CustomFormats = append(settings.CustomFormats[:i], settings.CustomFormats[i+1:]...)
+			return a.SetSettings(settings)
+		}
+	}
+
+	return fmt.Errorf("custom format with id '%s' not found", id)
+}
+
+// TestCustomFormat tests a custom format pattern against a sample log line
+//wails:export
+func (a *App) TestCustomFormat(pattern string, testLine string) TestFormatResult {
+	// Validate required named groups
+	if err := parser.ValidateNamedGroups(pattern); err != nil {
+		return TestFormatResult{
+			Success: false,
+			Error:   err.Error(),
+		}
+	}
+
+	// Compile the pattern
+	re, err := parser.CompileRegexp(pattern)
+	if err != nil {
+		return TestFormatResult{
+			Success: false,
+			Error:   fmt.Sprintf("Invalid regex: %v", err),
+		}
+	}
+
+	// Try to parse the test line
+	entry, _, err := parser.ParseCustomPattern(re, testLine, 0)
+	if err != nil {
+		return TestFormatResult{
+			Success: false,
+			Error:   err.Error(),
+		}
+	}
+
+	if entry == nil {
+		return TestFormatResult{
+			Success: false,
+			Error:   "Pattern did not match the test line",
+		}
+	}
+
+	return TestFormatResult{
+		Success: true,
+		Entry:   *entry,
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 )
@@ -21,6 +22,145 @@ type LogEntry struct {
 	Source    string    `json:"source"`     // "LogAspect.logging:39"
 	Class     string    `json:"class"`      // "LogAspect"
 	Message   string    `json:"message"`    // 멀티라인 포함
+}
+
+// CustomFormat represents a user-defined log format
+type CustomFormat struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Pattern     string    `json:"pattern"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+	Enabled     bool      `json:"enabled"`
+}
+
+// NewCustomFormat creates a new CustomFormat with a unique ID
+func NewCustomFormat(name, pattern, description string, enabled bool) CustomFormat {
+	return CustomFormat{
+		ID:          uuid.New().String(),
+		Name:        name,
+		Pattern:     pattern,
+		Description: description,
+		CreatedAt:   time.Now(),
+		Enabled:     enabled,
+	}
+}
+
+// ValidateNamedGroups checks if a regex pattern contains required named groups
+func ValidateNamedGroups(pattern string) error {
+	// Check for required named groups: timestamp, level, message
+	requiredGroups := []string{"timestamp", "level", "message"}
+
+	for _, group := range requiredGroups {
+		if !strings.Contains(pattern, "?P<"+group+">") {
+			return fmt.Errorf("parser: missing required named group '?P<%s>'", group)
+		}
+	}
+
+	return nil
+}
+
+// LoadCustomPatterns compiles and validates custom format patterns
+func LoadCustomPatterns(formats []CustomFormat) ([]*regexp.Regexp, error) {
+	var patterns []*regexp.Regexp
+
+	for _, format := range formats {
+		if !format.Enabled {
+			continue
+		}
+
+		// Validate required named groups
+		if err := ValidateNamedGroups(format.Pattern); err != nil {
+			return nil, fmt.Errorf("parser: invalid format '%s': %w", format.Name, err)
+		}
+
+		// Compile regex
+		re, err := CompileRegexp(format.Pattern)
+		if err != nil {
+			return nil, fmt.Errorf("parser: failed to compile pattern for '%s': %w", format.Name, err)
+		}
+
+		patterns = append(patterns, re)
+	}
+
+	return patterns, nil
+}
+
+// CompileRegexp compiles a regex pattern for use in custom formats
+func CompileRegexp(pattern string) (*regexp.Regexp, error) {
+	return regexp.Compile(pattern)
+}
+
+// ParseCustomPattern extracts log entry from a custom regex pattern match
+func ParseCustomPattern(pattern *regexp.Regexp, line string, lineNum int) (*LogEntry, string, error) {
+	matches := pattern.FindStringSubmatch(line)
+	if matches == nil {
+		return nil, "", nil
+	}
+
+	// Get named groups map
+	names := pattern.SubexpNames()
+	result := make(map[string]string)
+	for i, name := range names {
+		if i < len(matches) && name != "" {
+			result[name] = matches[i]
+		}
+	}
+
+	// Parse timestamp
+	tsStr, ok := result["timestamp"]
+	if !ok {
+		return nil, "", fmt.Errorf("parser: missing timestamp group at line %d", lineNum)
+	}
+
+	ts, err := time.Parse("2006-01-02 15:04:05.000", tsStr)
+	if err != nil {
+		// Try other common timestamp formats
+		ts, err = time.Parse(time.RFC3339, tsStr)
+		if err != nil {
+			ts, err = time.Parse("2006-01-02T15:04:05Z", tsStr)
+			if err != nil {
+				return nil, "", fmt.Errorf("parser: invalid timestamp '%s' at line %d: %w", tsStr, lineNum, err)
+			}
+		}
+	}
+
+	// Get level (required)
+	level, ok := result["level"]
+	if !ok {
+		return nil, "", fmt.Errorf("parser: missing level group at line %d", lineNum)
+	}
+	level = normalizeLevel(level)
+
+	// Get message (required)
+	message, ok := result["message"]
+	if !ok {
+		return nil, "", fmt.Errorf("parser: missing message group at line %d", lineNum)
+	}
+
+	// Get optional fields
+	source := result["source"]
+	if source == "" {
+		source = "Unknown"
+	}
+
+	class := result["class"]
+	if class == "" {
+		class = source
+		if class == "" {
+			class = "Unknown"
+		}
+	}
+
+	entry := &LogEntry{
+		Timestamp: ts,
+		Level:     level,
+		Source:    source,
+		Class:     class,
+		Message:   message,
+	}
+
+	return entry, message, nil
 }
 
 // logPatterns lists supported log formats in priority order
@@ -44,7 +184,8 @@ var logPatterns = []*regexp.Regexp{
 }
 
 // ParseFile parses a log file and returns log entries
-func ParseFile(filePath string) ([]LogEntry, error) {
+// customPatterns are optional user-defined patterns (tried after built-in patterns)
+func ParseFile(filePath string, customPatterns ...[]*regexp.Regexp) ([]LogEntry, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("parser: failed to open file: %w", err)
@@ -69,6 +210,13 @@ func ParseFile(filePath string) ([]LogEntry, error) {
 		}
 	}
 
+	// Flatten patterns: built-in first, then custom
+	var allPatterns []*regexp.Regexp
+	allPatterns = append(allPatterns, logPatterns...)
+	if len(customPatterns) > 0 && customPatterns[0] != nil {
+		allPatterns = append(allPatterns, customPatterns[0]...)
+	}
+
 	var entries []LogEntry
 	var currentEntry *LogEntry
 	var messageLines []string
@@ -84,7 +232,7 @@ func ParseFile(filePath string) ([]LogEntry, error) {
 		var parsedEntry *LogEntry
 		var parsedMessage string
 
-		// Try all patterns in order
+		// Try built-in patterns first
 		for i, pattern := range logPatterns {
 			matches := pattern.FindStringSubmatch(line)
 			if matches != nil {
@@ -147,6 +295,18 @@ func ParseFile(filePath string) ([]LogEntry, error) {
 					parsedMessage = rest
 				}
 				break
+			}
+		}
+
+		// If built-in patterns didn't match, try custom patterns
+		if parsedEntry == nil && len(customPatterns) > 0 && customPatterns[0] != nil {
+			for _, pattern := range customPatterns[0] {
+				var msg string
+				parsedEntry, msg, err = ParseCustomPattern(pattern, line, lineNum)
+				if err == nil && parsedEntry != nil {
+					parsedMessage = msg
+					break
+				}
 			}
 		}
 
@@ -263,7 +423,8 @@ type FileContext struct {
 
 // ParseFileIncremental parses only new entries from a log file
 // Returns new entries and updated file context
-func ParseFileIncremental(ctx FileContext) ([]LogEntry, FileContext, error) {
+// customPatterns are optional user-defined patterns (tried after built-in patterns)
+func ParseFileIncremental(ctx FileContext, customPatterns ...[]*regexp.Regexp) ([]LogEntry, FileContext, error) {
 	file, err := os.Open(ctx.Path)
 	if err != nil {
 		return nil, ctx, fmt.Errorf("parser: failed to open file: %w", err)
@@ -282,7 +443,7 @@ func ParseFileIncremental(ctx FileContext) ([]LogEntry, FileContext, error) {
 	// Check if file was truncated (log rotation)
 	if currentSize < ctx.LastPos {
 		// File was truncated, need full reload
-		entries, err := ParseFile(ctx.Path)
+		entries, err := ParseFile(ctx.Path, customPatterns...)
 		if err != nil {
 			return nil, ctx, err
 		}
@@ -363,6 +524,7 @@ func ParseFileIncremental(ctx FileContext) ([]LogEntry, FileContext, error) {
 		var parsedEntry *LogEntry
 		var parsedMessage string
 
+		// Try built-in patterns first
 		for i, pattern := range logPatterns {
 			matches := pattern.FindStringSubmatch(line)
 			if matches != nil {
@@ -425,6 +587,18 @@ func ParseFileIncremental(ctx FileContext) ([]LogEntry, FileContext, error) {
 					parsedMessage = rest
 				}
 				break
+			}
+		}
+
+		// If built-in patterns didn't match, try custom patterns
+		if parsedEntry == nil && len(customPatterns) > 0 && customPatterns[0] != nil {
+			for _, pattern := range customPatterns[0] {
+				var msg string
+				parsedEntry, msg, err = ParseCustomPattern(pattern, line, 0)
+				if err == nil && parsedEntry != nil {
+					parsedMessage = msg
+					break
+				}
 			}
 		}
 

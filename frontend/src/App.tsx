@@ -7,6 +7,7 @@ import FilterBar from './components/FilterBar';
 import LogList from './components/LogList';
 import LogDetail from './components/LogDetail';
 import SettingsPanel from './components/SettingsPanel';
+import CustomFormatPanel from './components/CustomFormatPanel';
 import ColumnSettings, { ColumnConfig, getDefaultColumns } from './components/ColumnSettings';
 import ResourceMonitor from './components/ResourceMonitor';
 import ToastContainer, { Toast } from './components/Toast';
@@ -60,6 +61,7 @@ function App() {
   const [displayMode, setDisplayMode] = useState<DisplayMode>('infinite-scroll');
   const [autoLoadLastFile, setAutoLoadLastFile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCustomFormats, setShowCustomFormats] = useState(false);
   const [showResourceUsage, setShowResourceUsage] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(60); // seconds
@@ -520,7 +522,7 @@ function App() {
   const saveSettings = async (updates: Partial<main.AppSettings>) => {
     try {
       const current = await GetSettings();
-      await SetSettings({
+      const settings: any = {
         lastOpenedFile: current.lastOpenedFile,
         autoLoadLastFile: current.autoLoadLastFile,
         theme: updates.theme ?? current.theme ?? 'dark',
@@ -529,8 +531,10 @@ function App() {
         showResourceUsage: updates.showResourceUsage ?? current.showResourceUsage ?? false,
         autoRefreshEnabled: updates.autoRefreshEnabled ?? current.autoRefreshEnabled ?? false,
         autoRefreshInterval: updates.autoRefreshInterval ?? current.autoRefreshInterval ?? 60,
+        customFormats: updates.customFormats ?? current.customFormats ?? [],
         ...updates,
-      });
+      };
+      await SetSettings(settings);
     } catch (error) {
       console.error('[App] Failed to save settings:', error);
     }
@@ -704,6 +708,13 @@ function App() {
                   <ColumnIcon size={12} /> Columns
                 </button>
                 <button
+                  onClick={() => setShowCustomFormats(!showCustomFormats)}
+                  className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors flex items-center gap-1.5"
+                  title="Custom log formats"
+                >
+                  <span className="text-sm">⚙</span> Formats
+                </button>
+                <button
                   onClick={() => setShowSettings(!showSettings)}
                   className="px-2 py-1 text-xs bg-border/70 rounded hover:bg-primary transition-colors flex items-center gap-1.5"
                   title="Settings"
@@ -739,6 +750,12 @@ function App() {
               autoRefreshInterval={autoRefreshInterval}
               onAutoRefreshIntervalChange={handleAutoRefreshIntervalChange}
               onClose={() => setShowSettings(false)}
+            />
+          )}
+
+          {showCustomFormats && (
+            <CustomFormatPanel
+              onClose={() => setShowCustomFormats(false)}
             />
           )}
 
