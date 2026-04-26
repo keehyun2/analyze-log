@@ -6,6 +6,10 @@ Java 로그 파일 분석용 로컬 Windows 데스크탑 애플리케이션.
 
 Wails v2 (Go + React) 기반으로 제작된 로그 분석 도구입니다. 서버 없이 `.exe` 단일 파일로 배포되며, SQLite FTS5 전체 텍스트 검색을 지원합니다.
 
+## 다운로드
+
+최신 릴리즈는 [GitHub Releases](https://github.com/keehyun2/analyze-log/releases)에서 다운로드할 수 있습니다.
+
 ## 주요 기능
 
 - 파일 드래그앤드롭 및 파일 선택으로 로그 로드
@@ -37,3 +41,30 @@ wails build
 
 - Windows 11 Pro 10.0.26200 이상
 - CGO (MinGW-w64) - SQLite 의존성으로 인해 필요
+
+## 라이선스
+
+이 프로젝트는 [MIT License](LICENSE) 하에 배포됩니다.
+
+## Code Signing Policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.io/foundation/).
+
+### Team Roles
+
+**Committers/Reviewers:**
+- [@keehyun2](https://github.com/keehyun2) - Project maintainer with source code modification rights
+
+**Approvers:**
+- [@keehyun2](https://github.com/keehyun2) - Responsible for approving release signing
+
+All release builds are automatically signed using SignPath Foundation's code signing certificate through GitHub Actions.
+
+## Privacy Policy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
+- analyze-log is a fully local application that runs entirely on your machine
+- No data is sent to any external servers
+- All log file processing happens locally on your computer
+- No telemetry or analytics are collected
