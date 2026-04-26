@@ -1,0 +1,13 @@
+2026-04-26 10:15:23.456 [INFO   ] [worker-0] ORDER RECEIVED  orderId=10001 user=alice product=ITEM-001 qty=3
+2026-04-26 10:15:23.567 [INFO   ] [worker-1] ORDER RECEIVED  orderId=10002 user=bob product=ITEM-042 qty=1
+2026-04-26 10:15:23.678 [FINE   ] [worker-0] STOCK OK        orderId=10001 product=ITEM-001
+2026-04-26 10:15:23.789 [WARNING] [worker-0] STOCK LOW       orderId=10001 product=ITEM-001 remaining=2
+2026-04-26 10:15:23.890 [INFO   ] [worker-0] PAYMENT OK     orderId=10001 amount=15000
+2026-04-26 10:15:24.001 [SEVERE ] [worker-1] PAYMENT FAILED  orderId=10002 user=bob reason=CARD_DECLINED
+2026-04-26 10:15:24.112 [INFO   ] [worker-0] SHIPPED        orderId=10001 tracking=TRK-123456
+2026-04-26 10:15:24.223 [INFO   ] [main] [HEARTBEAT] active-threads=4 memory=245MB
+2026-04-26 10:15:25.334 [SEVERE ] [ErrorBomb] Exception in PaymentService
+java.lang.RuntimeException: Connection timeout to payment gateway
+	at PaymentService.process(PaymentService.java:45)
+	at OrderLoop.processPayment(OrderLoop.java:78)
+	at OrderLoop.run(OrderLoop.java:35)

@@ -1,0 +1,12 @@
+2026-04-26 10:30:05.111 [connection-pool-1] DEBUG  com.example.db.ConnectionPool.getConnection - Getting connection from pool
+2026-04-26 10:30:05.222 [connection-pool-1] DEBUG  com.example.db.ConnectionPool.getConnection - Connection acquired: active=3, idle=7
+2026-04-26 10:30:05.333 [connection-pool-1] INFO   com.example.db.QueryExecutor.execute - Executing query: SELECT * FROM users WHERE id=?
+2026-04-26 10:30:05.444 [connection-pool-1] DEBUG  com.example.db.QueryExecutor.execute - Query executed in 111ms, rows=1
+2026-04-26 10:30:05.555 [connection-pool-2] INFO   com.example.db.QueryExecutor.execute - Executing query: INSERT INTO orders (user_id, product_id) VALUES (?, ?)
+2026-04-26 10:30:05.666 [connection-pool-2] DEBUG  com.example.db.QueryExecutor.execute - Insert successful: generatedId=30001
+2026-04-26 10:30:05.777 [connection-pool-1] ERROR  com.example.db.TransactionManager.rollback - Transaction rollback due to error
+	java.sql.SQLException: Foreign key constraint violation: user_id not found
+		at com.example.db.TransactionManager.commit(TransactionManager.java:56)
+		at com.example.service.OrderService.createOrder(OrderService.java:89)
+2026-04-26 10:30:05.888 [connection-pool-2] WARN   com.example.db.SlowQueryDetector.detectQuery - Slow query detected: duration=2345ms, query=SELECT * FROM audit_logs WHERE created_at > ?
+2026-04-26 10:30:06.999 [connection-cleaner] INFO  com.example.db.ConnectionCleaner.cleanup - Cleaning up idle connections: removed=2

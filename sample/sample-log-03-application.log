@@ -1,0 +1,14 @@
+2026-04-26 10:25:10.001 [main] INFO  com.example.Application.startup - Application starting...
+2026-04-26 10:25:10.002 [main] INFO  com.example.Database.connect - Connecting to database: jdbc:mysql://localhost:3306/mydb
+2026-04-26 10:25:10.123 [main] INFO  com.example.Database.connect - Database connection established
+2026-04-26 10:25:10.234 [main] DEBUG com.example.Cache.init - Initializing cache with maxsize=1000
+2026-04-26 10:25:10.345 [pool-1-thread-1] INFO  com.example.scheduler.JobExecutor.execute - Scheduled job started: DailyReportJob
+2026-04-26 10:25:10.456 [pool-1-thread-1] INFO  com.example.scheduler.JobExecutor.execute - Scheduled job completed: DailyReportJob, duration=112ms
+2026-04-26 10:25:11.567 [http-nio-8080-exec-1] INFO  com.example.web.UserController.login - User login attempt: userId=diana
+2026-04-26 10:25:11.678 [http-nio-8080-exec-1] INFO  com.example.web.UserController.login - User logged in successfully: userId=diana, sessionId=abc123def
+2026-04-26 10:25:12.789 [http-nio-8080-exec-2] WARN  com.example.web.ProductController.getProduct - Product not found: productId=ITEM-999
+2026-04-26 10:25:13.890 [http-nio-8080-exec-3] ERROR com.example.web.OrderController.submitOrder - Order submission failed
+	java.lang.NullPointerException: Cannot invoke "String.length()" because "customerEmail" is null
+		at com.example.web.OrderController.validateEmail(OrderController.java:78)
+		at com.example.web.OrderController.submitOrder(OrderController.java:45)
+		at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)

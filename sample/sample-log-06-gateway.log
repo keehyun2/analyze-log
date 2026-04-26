@@ -1,0 +1,14 @@
+2026-04-26 10:40:08.111 INFO  API Gateway - Request received: GET /api/v1/products
+2026-04-26 10:40:08.222 DEBUG API Gateway - Routing to service: ProductService
+2026-04-26 10:40:08.333 INFO  API Gateway - Response sent: status=200, duration=122ms
+2026-04-26 10:40:08.444 INFO  API Gateway - Request received: POST /api/v1/orders
+2026-04-26 10:40:08.555 ERROR API Gateway - Service unavailable
+	com.example.ServiceUnavailableException: ProductService is down
+		at com.example.gateway.ServiceInvoker.invoke(ServiceInvoker.java:45)
+		at com.example.gateway.GatewayController.handleRequest(GatewayController.java:78)
+		at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+		at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+		at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205)
+2026-04-26 10:40:08.666 WARN  API Gateway - Circuit breaker activated for ProductService
+2026-04-26 10:40:08.777 INFO  API Gateway - Request received: GET /api/v1/health
+2026-04-26 10:40:08.888 INFO  API Gateway - Health check passed

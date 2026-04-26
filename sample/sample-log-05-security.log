@@ -1,0 +1,9 @@
+2026-04-26 10:35:07.111 INFO  [SECURITY] AUTHENTICATION success userId=eve method=PASSWORD ip=192.168.1.100
+2026-04-26 10:35:07.222 INFO  [SECURITY] AUTHENTICATION failure userId=unknown method=PASSWORD ip=192.168.1.101 reason=Invalid credentials
+2026-04-26 10:35:07.333 WARN  [SECURITY] BRUTE_FORCE_DETECTED userId=alice attempts=5 duration=60s
+2026-04-26 10:35:07.444 INFO  [SECURITY] AUTHORIZATION success userId=eve resource=/api/orders permission=READ
+2026-04-26 10:35:07.555 ERROR [SECURITY] AUTHORIZATION failure userId=bob resource=/api/admin permission=ADMIN reason=Insufficient privileges
+2026-04-26 10:35:07.666 INFO  [SECURITY] PASSWORD_CHANGED userId=charlie method=WEB ip=192.168.1.102
+2026-04-26 10:35:07.777 WARN  [SECURITY] SESSION_TIMEOUT userId=diana sessionId=xyz789 duration=3600s
+2026-04-26 10:35:07.888 INFO  [SECURITY] AUDIT_LOG action=ORDER_CREATE userId=eve orderId=40001 amount=75000
+2026-04-26 10:35:07.999 ERROR [SECURITY] DATA_ACCESS_DENIED userId=bob resource=sensitive_data.csv action=EXPORT reason=Role mismatch

@@ -1,0 +1,23 @@
+2026-04-26 11:00:12.001 TRACE [main] com.example.Application.startup - Entry: Application.startup()
+2026-04-26 11:00:12.002 DEBUG [main] com.example.Application.startup - System property: app.env=production
+2026-04-26 11:00:12.003 INFO  [main] com.example.Application.startup - Application starting: version=2.1.0, build=20260426
+2026-04-26 11:00:12.111 INFO  [main] com.example.ConfigLoader.load - Loading configuration from /etc/app/config.yml
+2026-04-26 11:00:12.222 DEBUG [main] com.example.ConfigLoader.load - Config loaded: {database.url=jdbc:mysql://localhost:3306/mydb, cache.ttl=300}
+2026-04-26 11:00:12.333 WARN  [main] com.example.ConfigLoader.load - Deprecated config key detected: old.cache.enabled, use new.cache.enabled instead
+2026-04-26 11:00:12.444 INFO  [main] com.example.Database.connect - Connecting to database: jdbc:mysql://localhost:3306/mydb
+2026-04-26 11:00:12.555 INFO  [main] com.example.Database.connect - Database connection established
+2026-04-26 11:00:12.666 DEBUG [main] com.example.Database.getMetadata - Database version: MySQL 8.0.32
+2026-04-26 11:00:12.777 INFO  [main] com.example.Cache.init - Cache initialized: maxSize=10000, ttl=300s
+2026-04-26 11:00:12.888 INFO  [main] com.example.WebServer.start - Web server starting: port=8080
+2026-04-26 11:00:13.999 INFO  [main] com.example.WebServer.start - Web server started: http://0.0.0.0:8080
+2026-04-26 11:00:14.000 INFO  [main] com.example.Application.startup - Application started successfully in 1999ms
+2026-04-26 11:00:15.111 TRACE [http-nio-8080-exec-1] com.example.web.UserController.login - Entry: login(userId=alice)
+2026-04-26 11:00:15.222 DEBUG [http-nio-8080-exec-1] com.example.web.UserController.login - Authenticating user: alice
+2026-04-26 11:00:15.333 INFO  [http-nio-8080-exec-1] com.example.web.UserController.login - User logged in: userId=alice, sessionId=ses_abc123
+2026-04-26 11:00:15.444 TRACE [http-nio-8080-exec-1] com.example.web.UserController.login - Exit: login() - success
+2026-04-26 11:00:16.555 WARN  [http-nio-8080-exec-2] com.example.web.ProductController.getProduct - Product not found: productId=ITEM-999
+2026-04-26 11:00:17.666 ERROR [http-nio-8080-exec-3] com.example.web.OrderController.submit - Order submission failed
+	java.lang.IllegalArgumentException: Invalid quantity: -1
+		at com.example.validator.OrderValidator.validateQuantity(OrderValidator.java:23)
+		at com.example.validator.OrderValidator.validate(OrderValidator.java:15)
+		at com.example.web.OrderController.submit(OrderController.java:45)

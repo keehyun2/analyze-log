@@ -1,0 +1,13 @@
+2026-04-26 10:55:11.001 [INFO] [trace-id=abc123, span-id=def456] [OrderService] Creating order for user=eve
+2026-04-26 10:55:11.111 [DEBUG] [trace-id=abc123, span-id=ghi789] [InventoryService] Checking inventory for ITEM-777
+2026-04-26 10:55:11.222 [INFO] [trace-id=abc123, span-id=ghi789] [InventoryService] Inventory confirmed: available=50
+2026-04-26 10:55:11.333 [INFO] [trace-id=abc123, span-id=jkl012] [PaymentService] Processing payment: amount=95000
+2026-04-26 10:55:11.444 [ERROR] [trace-id=abc123, span-id=jkl012] [PaymentService] Payment gateway timeout
+	java.util.concurrent.TimeoutException: Payment gateway did not respond within 5000ms
+		at com.example.payment.PaymentGatewayClient.charge(PaymentGatewayClient.java:67)
+		at com.example.payment.PaymentService.processPayment(PaymentService.java:89)
+		at com.example.order.OrderService.createOrder(OrderService.java:56)
+2026-04-26 10:55:11.555 [WARN] [trace-id=abc123, span-id=def456] [OrderService] Order creation failed: payment timeout, will retry
+2026-04-26 10:55:12.666 [INFO] [trace-id=mno345, span-id=pqr678] [OrderService] Creating order for user=alice
+2026-04-26 10:55:12.777 [INFO] [trace-id=mno345, span-id=stu901] [PaymentService] Payment successful: transactionId=txn_987654321
+2026-04-26 10:55:12.888 [INFO] [trace-id=mno345, span-id=vwx234] [ShippingService] Shipment created: trackingId=SHIPPED-12345

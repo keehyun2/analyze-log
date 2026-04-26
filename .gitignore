@@ -34,7 +34,7 @@ Thumbs.db
 *~
 
 # Logs
-*.log
+# *.log
 .claude/settings.local.json
 
 test-drag-drop

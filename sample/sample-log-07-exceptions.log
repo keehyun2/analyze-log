@@ -1,0 +1,22 @@
+2026-04-26 10:45:09.001 [main] INFO  ExceptionDemo.starting - Application starting
+2026-04-26 10:45:09.111 [main] DEBUG ExceptionDemo.loadingConfig - Loading configuration from config.properties
+2026-04-26 10:45:09.222 [main] ERROR ExceptionDemo.configError - Failed to load configuration
+	java.io.FileNotFoundException: config.properties (No such file or directory)
+		at java.base/java.io.FileInputStream.open0(Native Method)
+		at java.base/java.io.FileInputStream.open(FileInputStream.java:219)
+		at java.base/java.io.FileInputStream.<init>(FileInputStream.java:157)
+		at com.example.ConfigLoader.load(ConfigLoader.java:34)
+		at com.example.ExceptionDemo.starting(ExceptionDemo.java:25)
+2026-04-26 10:45:09.333 [main] INFO  ExceptionDemo.usingDefaults - Using default configuration
+2026-04-26 10:45:09.444 [task-scheduler-1] ERROR ExceptionDemo.taskFailed - Scheduled task failed
+	java.lang.NullPointerException: Cannot invoke "List.size()" because "items" is null
+		at com.example.TaskProcessor.process(TaskProcessor.java:56)
+		at com.example.TaskProcessor$1.run(TaskProcessor.java:45)
+		at java.base/java.util.Executors$RunnableAdapter.call(Executors.java:539)
+		at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+		at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:304)
+		at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+		at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+		at java.base/java.lang.Thread.run(Thread.java:840)
+2026-04-26 10:45:09.555 [main] WARN  ExceptionDemo.highMemory - High memory usage detected: used=85%, max=1024MB
+2026-04-26 10:45:09.666 [main] INFO  ExceptionDemo.shutdown - Application shutting down

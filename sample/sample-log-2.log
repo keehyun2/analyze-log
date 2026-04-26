@@ -1,0 +1,53 @@
+2026-04-26 15:54:08.750 [INFO   ] === LogStorm 시작 (threads=4, logPerSec=3) ===
+2026-04-26 15:54:08.801 [INFO   ] [worker-0] ORDER RECEIVED  orderId=1 user=diana product=ITEM-777 qty=6
+2026-04-26 15:54:08.801 [INFO   ] [worker-1] ORDER RECEIVED  orderId=10001 user=diana product=ITEM-777 qty=7
+2026-04-26 15:54:08.801 [INFO   ] [worker-2] ORDER RECEIVED  orderId=20001 user=alice product=ITEM-777 qty=7
+2026-04-26 15:54:09.136 [FINE   ] [worker-0] STOCK OK        orderId=1 product=ITEM-777
+2026-04-26 15:54:09.136 [WARNING] [worker-1] STOCK LOW       orderId=10001 product=ITEM-777 remaining=4
+2026-04-26 15:54:09.137 [WARNING] [worker-2] STOCK LOW       orderId=20001 product=ITEM-777 remaining=4
+2026-04-26 15:54:09.470 [INFO   ] [worker-0] PAYMENT OK     orderId=1 amount=291990
+2026-04-26 15:54:09.471 [INFO   ] [worker-1] PAYMENT OK     orderId=10001 amount=69314
+2026-04-26 15:54:09.472 [INFO   ] [worker-2] PAYMENT OK     orderId=20001 amount=75376
+2026-04-26 15:54:09.812 [INFO   ] [worker-0] SHIPPED        orderId=1 tracking=TRK-232545
+2026-04-26 15:54:09.812 [INFO   ] [worker-2] SHIPPED        orderId=20001 tracking=TRK-854520
+2026-04-26 15:54:09.812 [INFO   ] [worker-1] SHIPPED        orderId=10001 tracking=TRK-636597
+2026-04-26 15:54:09.812 [INFO   ] [worker-0] ORDER RECEIVED  orderId=2 user=charlie product=ITEM-042 qty=1
+2026-04-26 15:54:09.813 [INFO   ] [worker-2] ORDER RECEIVED  orderId=20002 user=eve product=ITEM-777 qty=4
+2026-04-26 15:54:09.814 [INFO   ] [worker-1] ORDER RECEIVED  orderId=10002 user=eve product=ITEM-777 qty=9
+2026-04-26 15:54:10.148 [FINE   ] [worker-0] STOCK OK        orderId=2 product=ITEM-042
+2026-04-26 15:54:10.149 [FINE   ] [worker-2] STOCK OK        orderId=20002 product=ITEM-777
+2026-04-26 15:54:10.149 [FINE   ] [worker-1] STOCK OK        orderId=10002 product=ITEM-777
+2026-04-26 15:54:10.482 [INFO   ] [worker-0] PAYMENT OK     orderId=2 amount=18640
+2026-04-26 15:54:10.482 [INFO   ] [worker-2] PAYMENT OK     orderId=20002 amount=180864
+2026-04-26 15:54:10.483 [INFO   ] [worker-1] PAYMENT OK     orderId=10002 amount=429687
+2026-04-26 15:54:10.816 [INFO   ] [worker-0] SHIPPED        orderId=2 tracking=TRK-629082
+2026-04-26 15:54:10.817 [INFO   ] [worker-2] SHIPPED        orderId=20002 tracking=TRK-229765
+2026-04-26 15:54:10.817 [INFO   ] [worker-1] SHIPPED        orderId=10002 tracking=TRK-745080
+2026-04-26 15:54:10.817 [INFO   ] [worker-0] ORDER RECEIVED  orderId=3 user=alice product=ITEM-001 qty=6
+2026-04-26 15:54:10.819 [INFO   ] [worker-2] ORDER RECEIVED  orderId=20003 user=alice product=ITEM-099 qty=5
+2026-04-26 15:54:10.820 [INFO   ] [worker-1] ORDER RECEIVED  orderId=10003 user=charlie product=ITEM-001 qty=7
+2026-04-26 15:54:11.154 [FINE   ] [worker-0] STOCK OK        orderId=3 product=ITEM-001
+2026-04-26 15:54:11.155 [WARNING] [worker-2] STOCK LOW       orderId=20003 product=ITEM-099 remaining=0
+2026-04-26 15:54:11.155 [FINE   ] [worker-1] STOCK OK        orderId=10003 product=ITEM-001
+2026-04-26 15:54:11.488 [INFO   ] [worker-0] PAYMENT OK     orderId=3 amount=207324
+2026-04-26 15:54:11.488 [INFO   ] [worker-2] PAYMENT OK     orderId=20003 amount=95870
+2026-04-26 15:54:11.489 [INFO   ] [worker-1] PAYMENT OK     orderId=10003 amount=38031
+2026-04-26 15:54:11.823 [INFO   ] [worker-0] SHIPPED        orderId=3 tracking=TRK-193295
+2026-04-26 15:54:11.823 [INFO   ] [worker-2] SHIPPED        orderId=20003 tracking=TRK-165400
+2026-04-26 15:54:11.824 [INFO   ] [worker-0] ORDER RECEIVED  orderId=4 user=alice product=ITEM-777 qty=6
+2026-04-26 15:54:11.824 [INFO   ] [worker-2] ORDER RECEIVED  orderId=20004 user=charlie product=ITEM-001 qty=9
+2026-04-26 15:54:11.824 [INFO   ] [worker-1] SHIPPED        orderId=10003 tracking=TRK-448535
+2026-04-26 15:54:11.826 [INFO   ] [worker-1] ORDER RECEIVED  orderId=10004 user=alice product=ITEM-099 qty=6
+2026-04-26 15:54:12.158 [FINE   ] [worker-0] STOCK OK        orderId=4 product=ITEM-777
+2026-04-26 15:54:12.158 [FINE   ] [worker-2] STOCK OK        orderId=20004 product=ITEM-001
+2026-04-26 15:54:12.159 [FINE   ] [worker-1] STOCK OK        orderId=10004 product=ITEM-099
+2026-04-26 15:54:12.491 [INFO   ] [worker-0] PAYMENT OK     orderId=4 amount=329334
+2026-04-26 15:54:12.492 [INFO   ] [worker-2] PAYMENT OK     orderId=20004 amount=292032
+2026-04-26 15:54:12.493 [INFO   ] [worker-1] PAYMENT OK     orderId=10004 amount=159348
+2026-04-26 15:54:12.681 [FINE   ] Runtime.exit() called with status: 143
+java.lang.Throwable: Runtime.exit(143)
+	at java.base/java.lang.Shutdown.logRuntimeExit(Shutdown.java:179)
+	at java.base/java.lang.Shutdown.exit(Shutdown.java:160)
+	at java.base/java.lang.Terminator$1.handle(Terminator.java:51)
+	at java.base/jdk.internal.misc.Signal$1.run(Signal.java:218)
+	at java.base/java.lang.Thread.run(Thread.java:1583)

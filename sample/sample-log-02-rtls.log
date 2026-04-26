@@ -1,0 +1,12 @@
+2026-04-26 10:20:15.123 INFO  [OrderService.createOrder:42] - Order created: orderId=20001, user=charlie
+2026-04-26 10:20:15.234 DEBUG [InventoryService.checkStock:67] - Checking stock for ITEM-099: available=15
+2026-04-26 10:20:15.345 INFO  [InventoryService.checkStock:68] - Stock confirmed for ITEM-099
+2026-04-26 10:20:15.456 WARN  [InventoryService.checkStock:72] - Low stock threshold reached: ITEM-099, remaining=3
+2026-04-26 10:20:15.567 INFO  [PaymentService.charge:89] - Payment processed: orderId=20001, amount=45000
+2026-04-26 10:20:15.678 ERROR [PaymentService.charge:95] - Payment declined: orderId=20002, card=****1234
+2026-04-26 10:20:15.789 INFO  [ShippingService.createShipment:23] - Shipment created: tracking=TRK-789012
+2026-04-26 10:20:15.890 ERROR [OrderService.createOrder:55] - Failed to create order
+	com.example.OrderException: Invalid product code: INVALID-999
+	at OrderService.validateProduct(OrderService.java:120)
+	at OrderService.createOrder(OrderService.java:48)
+	at OrderController.submit(OrderController.java:33)

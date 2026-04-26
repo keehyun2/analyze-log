@@ -1,0 +1,10 @@
+2026-04-26 10:50:10.001 [batch-job-1] INFO  com.example.batch.OrderExportJob.start - Starting batch export: date=2026-04-26
+2026-04-26 10:50:10.111 [batch-job-1] DEBUG com.example.batch.OrderExportJob.query - Executing query: SELECT * FROM orders WHERE created_at >= '2026-04-26'
+2026-04-26 10:50:10.222 [batch-job-1] INFO  com.example.batch.OrderExportJob.progress - Export progress: processed=100, total=5000, percent=2%
+2026-04-26 10:50:11.333 [batch-job-1] INFO  com.example.batch.OrderExportJob.progress - Export progress: processed=1000, total=5000, percent=20%
+2026-04-26 10:50:11.444 [batch-job-1] WARN  com.example.batch.OrderExportJob.slowProgress - Export is slower than expected: elapsed=1144ms, eta=2856ms
+2026-04-26 10:50:12.555 [batch-job-1] INFO  com.example.batch.OrderExportJob.progress - Export progress: processed=2500, total=5000, percent=50%
+2026-04-26 10:50:13.666 [batch-job-1] INFO  com.example.batch.OrderExportJob.progress - Export progress: processed=4000, total=5000, percent=80%
+2026-04-26 10:50:14.777 [batch-job-1] INFO  com.example.batch.OrderExportJob.complete - Export completed: outputFile=orders_2026-04-26.csv, records=5000, duration=4776ms
+2026-04-26 10:50:14.888 [batch-job-1] INFO  com.example.batch.FileTransfer.upload - Starting file upload to S3: bucket=my-bucket, key=exports/orders_2026-04-26.csv
+2026-04-26 10:50:15.999 [batch-job-1] INFO  com.example.batch.FileTransfer.upload - Upload completed: bytes=2456789, duration=1111ms
