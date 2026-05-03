@@ -54,102 +54,28 @@ jobs:
           echo "OUTPUT=analyze-log-windows-$version.exe" >> $env:GITHUB_ENV
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
-      - name: Code Signing - Submit to SignPath
+      - name: Upload artifact for signing
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyze-log-windows-${{ env.VERSION }}
+          path: ${{ env.OUTPUT }}
+
+      - name: Submit to SignPath for signing
         if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          RESPONSE=$(curl -s -X POST \
-            "https://app.signpath.io/API/v1/${{ secrets.SIGNPATH_ORGANIZATION_ID }}/Signings" \
-            -H "Authorization: Bearer ${{ secrets.SIGNPATH_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"artifactConfiguration\": \"${{ secrets.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}\",
-              \"projectSlug\": \"${{ secrets.SIGNPATH_PROJECT_SLUG }}\",
-              \"signingPolicySlug\": \"${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}\",
-              \"inputArtifact\": {
-                \"fileName\": \"analyze-log-windows-${{ env.VERSION }}.exe\",
-                \"fileSize\": $(stat -c%s "${{ env.OUTPUT }}"),
-                \"fileContent\": \"$(base64 -w 0 < "${{ env.OUTPUT }}")\"
-              }
-            }")
+        uses: SignPath/github-action-submit-signing-request@v1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ secrets.SIGNPATH_PROJECT_SLUG }}'
+          signing-policy-slug: '${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}'
+          artifact-configuration-slug: '${{ secrets.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}'
+          github-artifact-id: '${{ steps.upload.outputs.artifact-id }}'
+          wait-for-completion: true
+          output-artifact-directory: './signed-artifacts'
 
-          echo "Response: $RESPONSE"
-
-          SIGNING_ID=$(echo "$RESPONSE" | jq -r '.ID')
-          if [ "$SIGNING_ID" == "null" ]; then
-            echo "Failed to submit signing request"
-            echo "$RESPONSE"
-            exit 1
-          fi
-
-          echo "SIGNING_ID=$SIGNING_ID" >> $GITHUB_ENV
-          echo "Signing request submitted: $SIGNING_ID"
-
-      - name: Code Signing - Wait for completion
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          echo "Waiting for signing to complete..."
-
-          max_attempts=60
-          attempt=0
-
-          while [ $attempt -lt $max_attempts ]; do
-            RESPONSE=$(curl -s \
-              "https://app.signpath.io/API/v1/${{ secrets.SIGNPATH_ORGANIZATION_ID }}/Signings/$SIGNING_ID" \
-              -H "Authorization: Bearer ${{ secrets.SIGNPATH_API_TOKEN }}")
-
-            STATUS=$(echo "$RESPONSE" | jq -r '.Status')
-            echo "Status: $STATUS"
-
-            if [ "$STATUS" == "Completed" ]; then
-              echo "Signing completed successfully"
-              break
-            fi
-
-            if [ "$STATUS" == "Failed" ]; then
-              echo "Signing failed"
-              echo "$RESPONSE" | jq '.CompletionDetails'
-              exit 1
-            fi
-
-            if [ "$STATUS" == "Canceled" ]; then
-              echo "Signing was canceled"
-              exit 1
-            fi
-
-            attempt=$((attempt + 1))
-            echo "Waiting... ($attempt/$max_attempts)"
-            sleep 10
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "Timeout waiting for signing to complete"
-            exit 1
-          fi
-
-      - name: Code Signing - Download signed artifact
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          RESPONSE=$(curl -s \
-            "https://app.signpath.io/API/v1/${{ secrets.SIGNPATH_ORGANIZATION_ID }}/Signings/$SIGNING_ID" \
-            -H "Authorization: Bearer ${{ secrets.SIGNPATH_API_TOKEN }}")
-
-          SIGNED_URL=$(echo "$RESPONSE" | jq -r '.SignedArtifact.DownloadUrl')
-
-          if [ "$SIGNED_URL" == "null" ]; then
-            echo "Failed to get download URL"
-            echo "$RESPONSE"
-            exit 1
-          fi
-
-          echo "Downloading signed artifact from: $SIGNED_URL"
-          curl -s -o "${{ env.OUTPUT }}" "$SIGNED_URL"
-
-          ls -lh "${{ env.OUTPUT }}"
-
-      - name: Upload artifact
+      - name: Upload unsigned artifact (non-tag builds)
+        if: "!startsWith(github.ref, 'refs/tags/v')"
         uses: actions/upload-artifact@v4
         with:
           name: analyze-log-windows
@@ -159,7 +85,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ env.OUTPUT }}
+          files: ./signed-artifacts/*
           draft: false
           prerelease: false
         env:
@@ -169,8 +95,13 @@ jobs:
         if: success()
         shell: bash
         run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            OUTPUT="./signed-artifacts/*"
+          else
+            OUTPUT="${{ env.OUTPUT }}"
+          fi
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Output:* ${{ env.OUTPUT }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions>\"}" \
+            --data "{\"text\":\":white_check_mark: *Build Success*\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Output:* $OUTPUT\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Actions>\"}" \
             ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Slack - Build Failed
